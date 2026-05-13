@@ -38,3 +38,31 @@ rust-meth 'HashMap<String, u32>'
 Because it uses rust-analyzer under the hood, the output reflects your actual
 installed toolchain. Including trait methods, blanket impls, deprecated methods,
 and nightly-only APIs. Not a static list.
+
+## Fuzzy filter
+
+The filter argument uses fuzzy matching, so typos and partials work:
+
+```sh
+rust-meth u8 wrapng       # finds all wrapping_* methods
+rust-meth '&str' splt     # finds split, splitn, split_once, etc.
+```
+
+Results are sorted by match quality, best first.
+
+### Interactive picker
+
+Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:
+
+```sh
+rust-meth u8 -i
+rust-meth 'HashMap<String, u32>' -i
+rust-meth '&str' -i
+```
+
+Type to narrow the list, arrow keys to move, Enter to select: prints the
+method name and full signature. Esc to quit without selecting.
+
+### License
+
+- [Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
