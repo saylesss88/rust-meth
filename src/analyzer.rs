@@ -9,6 +9,7 @@
 //   6. Extract Method items from the response
 //   7. shutdown / exit
 
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use serde_json::Value;
@@ -16,7 +17,7 @@ use serde_json::Value;
 use crate::lsp::LspTransport;
 use crate::probe::Probe;
 
-/// LSP CompletionItemKind for Method is 2.
+/// LSP `CompletionItemKind` for Method is 2.
 const KIND_METHOD: u64 = 2;
 
 pub struct MethodInfo {
@@ -24,22 +25,28 @@ pub struct MethodInfo {
     pub detail: Option<String>, // e.g. "fn len(&self) -> usize"
 }
 
+fn rustup_rust_analyzer() -> Option<PathBuf> {
+    let out = Command::new("rustup")
+        .args(["which", "rust-analyzer"])
+        .output()
+        .ok()?;
+
+    if !out.status.success() {
+        return None;
+    }
+
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!path.is_empty()).then(|| path.into())
+}
+
 /// Find `rust-analyzer` on PATH, or in the active rustup toolchain bin dir.
-pub fn find_rust_analyzer() -> anyhow::Result<std::path::PathBuf> {
+pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     if let Ok(path) = which("rust-analyzer") {
         return Ok(path);
     }
 
-    if let Ok(out) = Command::new("rustup")
-        .args(["which", "rust-analyzer"])
-        .output()
-    {
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !s.is_empty() {
-                return Ok(s.into());
-            }
-        }
+    if let Some(path) = rustup_rust_analyzer() {
+        return Ok(path);
     }
 
     anyhow::bail!(
@@ -105,8 +112,9 @@ pub fn query_methods(
 
             let has_items = msg["result"]["items"]
                 .as_array()
-                .map(|a| !a.is_empty())
-                .unwrap_or(false);
+                .is_some_and(|a| !a.is_empty());
+            // .map(|a| !a.is_empty())
+            // .unwrap_or(false);
 
             if has_items {
                 response = msg;
@@ -128,7 +136,7 @@ pub fn query_methods(
     let _ = child.wait();
 
     // ── 7. Parse completion items ─────────────────────────────────────────────
-    parse_methods(completion_response)
+    parse_methods(&completion_response)
 }
 
 /// Wait until rust-analyzer is ready to serve completions.
@@ -174,7 +182,7 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
     .or(Ok(()))
 }
 
-fn parse_methods(response: Value) -> anyhow::Result<Vec<MethodInfo>> {
+fn parse_methods(response: &Value) -> anyhow::Result<Vec<MethodInfo>> {
     let items = match &response["result"] {
         Value::Array(arr) => arr.clone(),
         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),

@@ -50,10 +50,10 @@ fn main() {
     };
 
     // Apply optional filter.
-    let matched: Vec<_> = match filter {
-        Some(pat) => methods.iter().filter(|m| m.name.contains(pat)).collect(),
-        None => methods.iter().collect(),
-    };
+    let matched: Vec<_> = filter.map_or_else(
+        || methods.iter().collect(),
+        |pat| methods.iter().filter(|m| m.name.contains(pat)).collect(),
+    );
 
     if matched.is_empty() {
         match filter {
