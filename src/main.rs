@@ -4,15 +4,20 @@ mod probe;
 
 use std::process;
 
+use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
+
 fn usage(bin: &str) {
-    eprintln!("Usage: {bin} <type> [filter]");
+    eprintln!("Usage: {bin} <type> [filter|-i]");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  {bin} u8");
     eprintln!("  {bin} String");
     eprintln!("  {bin} \"Vec<i32>\"");
     eprintln!("  {bin} \"HashMap<String,u32>\"");
-    eprintln!("  {bin} u8 wrapping");
+    eprintln!("  {bin} u8 wrapping         # fuzzy filter");
+    eprintln!("  {bin} u8 -i               # interactive picker");
 }
 
 fn main() {
@@ -29,7 +34,12 @@ fn main() {
     }
 
     let type_name = &args[0];
-    let filter = args.get(1).map(String::as_str);
+    let interactive = args.iter().any(|a| a == "-i" || a == "--interactive");
+    let filter = if interactive {
+        None
+    } else {
+        args.get(1).map(String::as_str)
+    };
 
     // Locate rust-analyzer.
     let ra_path = match analyzer::find_rust_analyzer() {
@@ -49,10 +59,43 @@ fn main() {
         }
     };
 
-    // Apply optional filter.
+    // Interactive fuzzy selector.
+    if interactive {
+        let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
+        let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
+            .with_prompt(format!("Methods on `{type_name}`"))
+            .items(&items)
+            .interact_opt();
+
+        match selection {
+            Ok(Some(idx)) => {
+                let m = &methods[idx];
+                match &m.detail {
+                    Some(detail) => println!("  {}  {detail}", m.name),
+                    None => println!("  {}", m.name),
+                }
+            }
+            Ok(None) => {} // user hit Esc
+            Err(e) => {
+                eprintln!("error: {e}");
+                process::exit(1);
+            }
+        }
+        return;
+    }
+
+    // Apply optional fuzzy filter, sorted by match quality.
     let matched: Vec<_> = filter.map_or_else(
         || methods.iter().collect(),
-        |pat| methods.iter().filter(|m| m.name.contains(pat)).collect(),
+        |pat| {
+            let matcher = SkimMatcherV2::default();
+            let mut scored: Vec<_> = methods
+                .iter()
+                .filter_map(|m| matcher.fuzzy_match(&m.name, pat).map(|score| (score, m)))
+                .collect();
+            scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+            scored.into_iter().map(|(_, m)| m).collect()
+        },
     );
 
     if matched.is_empty() {
