@@ -5,6 +5,20 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// Preamble added to every probe file so common std types resolve without
+// the user needing to fully qualify them (e.g. `HashMap` not `std::collections::HashMap`).
+const PREAMBLE: &str = "\
+#![allow(unused_imports)]
+use std::collections::*;
+use std::sync::*;
+use std::cell::*;
+use std::rc::Rc;
+use std::io::{self, Read, Write, BufRead};
+use std::fmt;
+use std::ops::*;
+use std::path::{Path, PathBuf};
+";
+
 pub struct Probe {
     pub dir: PathBuf,
     pub src_path: PathBuf,
@@ -25,22 +39,28 @@ impl Probe {
             "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
         )?;
 
-        // Source file:
-        //   line 0: fn main() {
-        //   line 1:     let _x: TYPE = todo!();
-        //   line 2:     _x.          <-- completion trigger after the dot
-        //   line 3: }
-        let source = format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n");
+        // Source file layout (preamble lines + fn main):
+        //
+        //   0..N  preamble use statements
+        //   N+0:  fn main() {
+        //   N+1:      let _x: TYPE = todo!();
+        //   N+2:      _x.         <-- completion trigger after the dot
+        //   N+3:  }
+        let preamble_lines = PREAMBLE.lines().count() as u32;
+        let source =
+            format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n");
+
         let src_path = src_dir.join("main.rs");
         fs::write(&src_path, &source)?;
 
-        // Dot is at line 2, right after "_x." (4 spaces + "_x." = col 7)
+        // Dot is at preamble_lines + 2, col = len("    _x.")
+        let dot_line = preamble_lines + 2;
         let dot_col = "    _x.".len() as u32;
 
         Ok(Self {
             dir,
             src_path,
-            dot_line: 2,
+            dot_line,
             dot_col,
         })
     }
@@ -66,7 +86,6 @@ impl Drop for Probe {
 
 fn path_to_uri(path: &Path) -> String {
     let s = path.to_string_lossy();
-    // Simple file URI — assumes Unix paths (absolute, starts with /).
     if s.starts_with('/') {
         format!("file://{s}")
     } else {
