@@ -1,14 +1,15 @@
+// analyzer.rs
+//
 // Orchestrates the full LSP session:
 //   1. Spawn rust-analyzer
 //   2. initialize / initialized handshake
 //   3. textDocument/didOpen
-//   4. Wait for indexing to complete ($/progress kind=end)
-//   5. textDocument/completion
+//   4. Wait for indexing to complete
+//   5. textDocument/completion (with retry)
 //   6. Extract Method items from the response
 //   7. shutdown / exit
 
 use std::process::{Command, Stdio};
-use std::time::Duration;
 
 use serde_json::Value;
 
@@ -25,12 +26,10 @@ pub struct MethodInfo {
 
 /// Find `rust-analyzer` on PATH, or in the active rustup toolchain bin dir.
 pub fn find_rust_analyzer() -> anyhow::Result<std::path::PathBuf> {
-    // Prefer whatever is on PATH first.
     if let Ok(path) = which("rust-analyzer") {
         return Ok(path);
     }
 
-    // Fall back to `rustup which rust-analyzer` if rustup is available.
     if let Ok(out) = Command::new("rustup")
         .args(["which", "rust-analyzer"])
         .output()
@@ -67,7 +66,7 @@ pub fn query_methods(
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null()) // suppress RA's own logging
+        .stderr(Stdio::null())
         .spawn()?;
 
     let mut lsp = LspTransport::new(&mut child);
@@ -75,7 +74,6 @@ pub fn query_methods(
 
     // ── 1. initialize ────────────────────────────────────────────────────────
     lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
-    // Wait for the initialize response (id=1).
     lsp.recv_until(20, |msg| {
         (msg["id"] == 1 && msg["result"].is_object()).then_some(())
     })?;
@@ -87,24 +85,45 @@ pub fn query_methods(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
-    // RA sends $/progress notifications. We wait for any progress token to
-    // reach kind="end", or bail out after a generous message budget.
     eprintln!("Waiting for rust-analyzer to index… (this may take a moment on first run)");
     wait_for_indexing(&mut lsp)?;
 
-    // ── 5. completion ─────────────────────────────────────────────────────────
-    lsp.send(&LspTransport::completion(
-        2,
-        &probe.src_uri(),
-        probe.dot_line,
-        probe.dot_col,
-    ))?;
+    // ── 5. completion — retry until RA returns items ──────────────────────────
+    // RA may return isIncomplete+empty if it isn't fully ready yet.
+    let completion_response = {
+        let mut response = Value::Null;
+        for attempt in 1..=10u64 {
+            let req_id = attempt + 2;
+            lsp.send(&LspTransport::completion(
+                req_id,
+                &probe.src_uri(),
+                probe.dot_line,
+                probe.dot_col,
+            ))?;
 
-    let completion_response = lsp.recv_until(50, |msg| (msg["id"] == 2).then(|| msg.clone()))?;
+            let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
+
+            let has_items = msg["result"]["items"]
+                .as_array()
+                .map(|a| !a.is_empty())
+                .unwrap_or(false);
+
+            if has_items {
+                response = msg;
+                break;
+            }
+
+            if attempt < 10 {
+                eprintln!("(attempt {attempt}: not ready, retrying…)");
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        }
+        response
+    };
 
     // ── 6. shutdown / exit ────────────────────────────────────────────────────
-    lsp.send(&LspTransport::shutdown(3))?;
-    let _ = lsp.recv_until(10, |msg| (msg["id"] == 3).then_some(()));
+    lsp.send(&LspTransport::shutdown(13))?;
+    let _ = lsp.recv_until(10, |msg| (msg["id"] == 13).then_some(()));
     lsp.send(&LspTransport::exit())?;
     let _ = child.wait();
 
@@ -112,31 +131,50 @@ pub fn query_methods(
     parse_methods(completion_response)
 }
 
-/// Block until we see a $/progress with value.kind == "end", indicating RA
-/// has finished its initial indexing pass.  We give up after 200 messages
-/// (typically takes 5-30 on a warm project).
+/// Wait until rust-analyzer is ready to serve completions.
+///
+/// RA doesn't always send $/progress — on fast/warm projects it skips straight
+/// to publishing diagnostics. We treat any of these as "ready":
+///   - $/progress with value.kind == "end"
+///   - experimental/serverStatus with quiescent == true
+///   - workspace/diagnostic/refresh
+///   - textDocument/publishDiagnostics
 fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
+    let debug = std::env::var("RUST_METH_DEBUG").is_ok();
     lsp.recv_until(200, |msg| {
-        if msg["method"] == "$/progress" {
-            let kind = &msg["params"]["value"]["kind"];
-            if kind == "end" {
-                return Some(());
+        let method = msg["method"].as_str().unwrap_or("");
+        if debug {
+            eprintln!("[debug] {method}");
+            if method == "$/progress" {
+                eprintln!(
+                    "        token={} kind={}",
+                    msg["params"]["token"], msg["params"]["value"]["kind"]
+                );
             }
         }
-        // Also accept if RA sends a "rust-analyzer/ready" notification.
-        if msg["method"] == "experimental/serverStatus" {
-            if msg["params"]["quiescent"] == true {
-                return Some(());
+        match method {
+            "$/progress" => {
+                if msg["params"]["value"]["kind"] == "end" {
+                    Some(())
+                } else {
+                    None
+                }
             }
+            "experimental/serverStatus" => {
+                if msg["params"]["quiescent"] == true {
+                    Some(())
+                } else {
+                    None
+                }
+            }
+            "workspace/diagnostic/refresh" | "textDocument/publishDiagnostics" => Some(()),
+            _ => None,
         }
-        None
     })
-    // If we never see the signal, proceed anyway — completion may still work.
     .or(Ok(()))
 }
 
 fn parse_methods(response: Value) -> anyhow::Result<Vec<MethodInfo>> {
-    // The result is either a CompletionList { items: [...] } or an array directly.
     let items = match &response["result"] {
         Value::Array(arr) => arr.clone(),
         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),
@@ -150,7 +188,7 @@ fn parse_methods(response: Value) -> anyhow::Result<Vec<MethodInfo>> {
             name: item["label"]
                 .as_str()
                 .unwrap_or("")
-                .split('(') // labels often include sig: "len()"
+                .split('(')
                 .next()
                 .unwrap_or("")
                 .trim()
