@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Print all methods available on any Rust type, powered by rust-analyzer"
 license = "MIT OR Apache-2.0"
@@ -17,12 +17,12 @@ name = "rust-meth"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1"
-dialoguer = {version = "0.11", features = [
+anyhow = "1.0.102"
+dialoguer = {version = "0.12", features = [
 	"fuzzy-select",
 ], default-features = false}
-fuzzy-matcher = "0.3"
-serde_json = "1"
+fuzzy-matcher = "0.3.7"
+serde_json = "1.0.149"
 
 [profile.release]
 opt-level = 3

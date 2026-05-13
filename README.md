@@ -3,8 +3,47 @@
 Print every method available on any Rust type, with full signatures. Powered by
 `rust-analyzer`.
 
+It works on any type your toolchain knows about: primitives, standard library
+types, and generic combinations of them. Support for third-party crate types
+(e.g. `serde_json::Value`) is not yet implemented.
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Fuzzy filter](#fuzzy-filter)
+  - [Interactive picker](#interactive-picker)
+- [How it works](#how-it-works)
+- [License](#license)
+
+## Requirements
+
+- A Rust toolchain (stable or nightly)
+- `rust-analyzer` on your PATH:
+
+```sh
+  rustup component add rust-analyzer
+```
+
+---
+
+## Installation
+
 ```bash
-rust-meth u8 wrapping
+cargo install rust-meth
+```
+
+---
+
+## Usage
+
+```sh
+rust-meth <type> [filter | -i]
+```
+
+```bash
+$ rust-meth u8 wrapping
 Waiting for rust-analyzer to index… (this may take a moment on first run)
 (attempt 1: not ready, retrying…)
 rust-meth: methods on `u8` matching "wrapping"
@@ -27,11 +66,14 @@ rust-meth: methods on `u8` matching "wrapping"
 14 method(s)
 ```
 
-More example commands:
+More examples:
 
 ```bash
+rust-meth '&str'
+rust-meth String
+rust-meth f64
 rust-meth 'Vec<u8>'
-
+rust-meth 'Option<u8>'
 rust-meth 'HashMap<String, u32>'
 ```
 
@@ -45,10 +87,36 @@ The filter argument uses fuzzy matching, so typos and partials work:
 
 ```sh
 rust-meth u8 wrapng       # finds all wrapping_* methods
-rust-meth '&str' splt     # finds split, splitn, split_once, etc.
+```
+
+```sh
+$ rust-meth '&str' splt
+Waiting for rust-analyzer to index… (this may take a moment on first run)
+rust-meth: methods on `&str` matching "splt"
+
+  split_terminator        fn(&self, P) -> SplitTerminator<'_, P>
+  split                   fn(&self, P) -> Split<'_, P>
+  split_ascii_whitespace  fn(&self) -> SplitAsciiWhitespace<'_>
+  split_at                const fn(&self, usize) -> (&str, &str)
+  split_at_checked        const fn(&self, usize) -> Option<(&str, &str)>
+  split_at_mut            const fn(&mut self, usize) -> (&mut str, &mut str)
+  split_at_mut_checked    const fn(&mut self, usize) -> Option<(&mut str, &mut str)>
+  split_inclusive         fn(&self, P) -> SplitInclusive<'_, P>
+  split_once              fn(&self, P) -> Option<(&str, &str)>
+  split_whitespace        fn(&self) -> SplitWhitespace<'_>
+  splitn                  fn(&self, usize, P) -> SplitN<'_, P>
+  rsplit_terminator       fn(&self, P) -> RSplitTerminator<'_, P>
+  rsplit                  fn(&self, P) -> RSplit<'_, P>
+  rsplit_once             fn(&self, P) -> Option<(&str, &str)>
+  rsplitn                 fn(&self, usize, P) -> RSplitN<'_, P>
+  escape_default          fn(&self) -> EscapeDefault<'_>
+
+16 method(s)
 ```
 
 Results are sorted by match quality, best first.
+
+---
 
 ### Interactive picker
 
@@ -56,13 +124,67 @@ Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:
 
 ```sh
 rust-meth u8 -i
-rust-meth 'HashMap<String, u32>' -i
 rust-meth '&str' -i
 ```
 
-Type to narrow the list, arrow keys to move, Enter to select: prints the
-method name and full signature. Esc to quit without selecting.
+```sh
+$ rust-meth 'HashMap<String, u32>' -i
+? Methods on `HashMap<String, u32>` ›
+  capacity
+  clear
+  clone
+  clone_from
+  clone_into
+  contains_key
+  drain
+  entry
+  eq
+  extend
+  extend_one
+  extend_reserve
+  extract_if
+  get
+  get_disjoint_mut
+  get_disjoint_unchecked_mut
+  # ---snip---
+```
+
+Type to narrow the list, arrow keys to move, Enter to select: prints the method
+name and full signature. Esc to quit without selecting.
+
+---
+
+## How it works
+
+For each query, `rust-meth`:
+
+1. Creates a temporary Cargo project in `/tmp` with a probe file:
+
+```rust
+   use std::collections::*;
+   // ... other common std imports ...
+   fn main() {
+       let _x: TYPE = todo!();
+       _x.  // ← LSP completion trigger
+   }
+```
+
+2. Spawns `rust-analyzer` as a subprocess
+
+3. Performs the LSP handshake (`initialize` → `initialized` →
+   `textDocument/didOpen`)
+
+4. Waits for RA to finish indexing, then sends `textDocument/completion` at the
+   dot
+
+5. Filters the response for `CompletionItemKind::Method` items
+
+6. Prints names and signatures, then shuts RA down
+
+The temporary project is cleaned up automatically on exit.
+
+---
 
 ### License
 
-- [Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
+- [MIT OR Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
