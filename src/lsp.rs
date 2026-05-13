@@ -1,6 +1,6 @@
 // Minimal LSP transport: write Content-Length-framed JSON over stdin,
-// read framed responses from stdout.  No async, no external LSP crate —
-// just BufReader + serde_json.
+// read framed responses from stdout.  No async, no external LSP crate
+// just `BufReader` + `serde_json`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout};

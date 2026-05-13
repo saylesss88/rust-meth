@@ -1,5 +1,3 @@
-// analyzer.rs
-//
 // Orchestrates the full LSP session:
 //   1. Spawn rust-analyzer
 //   2. initialize / initialized handshake
@@ -113,8 +111,6 @@ pub fn query_methods(
             let has_items = msg["result"]["items"]
                 .as_array()
                 .is_some_and(|a| !a.is_empty());
-            // .map(|a| !a.is_empty())
-            // .unwrap_or(false);
 
             if has_items {
                 response = msg;
@@ -141,7 +137,7 @@ pub fn query_methods(
 
 /// Wait until rust-analyzer is ready to serve completions.
 ///
-/// RA doesn't always send $/progress — on fast/warm projects it skips straight
+/// RA doesn't always send $/progress. On fast/warm projects it skips straight
 /// to publishing diagnostics. We treat any of these as "ready":
 ///   - $/progress with value.kind == "end"
 ///   - experimental/serverStatus with quiescent == true
