@@ -13,6 +13,7 @@ types, and generic combinations of them. Support for third-party crate types
 - [Installation](#installation)
 - [Usage](#usage)
   - [Fuzzy filter](#fuzzy-filter)
+  - [Inline documentation](#inline-documentation)
   - [Interactive picker](#interactive-picker)
 - [How it works](#how-it-works)
 - [License](#license)
