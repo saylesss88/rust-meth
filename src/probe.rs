@@ -1,5 +1,5 @@
 // Creates a minimal temporary Cargo project containing a single source file
-// that declares `let _x: TYPE = todo!();` followed by `_x.` — the dot is the
+// that declares `let _x: TYPE = todo!();` followed by `_x.` The dot is the
 // completion trigger point.  The project is cleaned up when `Probe` is dropped.
 
 use std::fs;
@@ -33,10 +33,10 @@ impl Probe {
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        // Minimal Cargo.toml — no dependencies so indexing is fast.
+        // Minimal Cargo.toml with no dependencies so indexing is fast.
         fs::write(
             dir.join("Cargo.toml"),
-            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
         )?;
 
         // Source file layout (preamble lines + fn main):

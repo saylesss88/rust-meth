@@ -1,3 +1,7 @@
+//! `rust-meth`: A CLI utility to discover and filter methods available on Rust types.
+//! It leverages `rust-analyzer` via the Language Server Protocol (LSP) to provide
+//! accurate, context-aware method resolution.
+
 mod analyzer;
 mod lsp;
 mod probe;
@@ -8,8 +12,9 @@ use dialoguer::{theme::ColorfulTheme, FuzzySelect};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 
+/// Prints the CLI help menu with usage patterns and examples.
 fn usage(bin: &str) {
-    eprintln!("Usage: {bin} <type> [filter|-i]");
+    eprintln!("Usage: {bin} <type> [filter|-i] [--version]");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  {bin} u8");
@@ -21,6 +26,7 @@ fn usage(bin: &str) {
 }
 
 fn main() {
+    // Determine binary name for help text, defaulting to "rust-meth".
     let bin = std::env::current_exe()
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -28,8 +34,20 @@ fn main() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
 
+    // Check for help or version flags
+    if args.is_empty() {
+        usage(&bin);
+        process::exit(0);
+    }
+
     if args.is_empty() || args[0] == "--help" || args[0] == "-h" {
         usage(&bin);
+        process::exit(0);
+    }
+
+    if args[0] == "--version" || args[0] == "-V" {
+        // env!("CARGO_PKG_VERSION") fetches the version from Cargo.toml
+        println!("{} {}", bin, env!("CARGO_PKG_VERSION"));
         process::exit(0);
     }
 
@@ -41,7 +59,7 @@ fn main() {
         args.get(1).map(String::as_str)
     };
 
-    // Locate rust-analyzer.
+    // Locate the rust-analyzer binary in the system PATH.
     let ra_path = match analyzer::find_rust_analyzer() {
         Ok(p) => p,
         Err(e) => {
@@ -50,7 +68,7 @@ fn main() {
         }
     };
 
-    // Run the LSP session.
+    // Spin up an ephemeral LSP session to query available methods for the type.
     let methods = match analyzer::query_methods(type_name, &ra_path) {
         Ok(m) => m,
         Err(e) => {
@@ -106,7 +124,7 @@ fn main() {
         process::exit(1);
     }
 
-    // Header.
+    // Display results in a formatted table with aligned columns.
     match filter {
         Some(pat) => println!("{bin}: methods on `{type_name}` matching {pat:?}\n"),
         None => println!("{bin}: methods on `{type_name}`\n"),
