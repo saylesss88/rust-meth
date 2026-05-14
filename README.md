@@ -148,6 +148,9 @@ rust-meth 'HashMap<String, u32>' entry --doc
 rust-meth u8 checked --doc
 ```
 
+Also works in interactive mode. Select a method and the doc comment prints below
+the signature. Examples shown in next section.
+
 ### Interactive picker
 
 Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:
@@ -181,6 +184,28 @@ $ rust-meth 'HashMap<String, u32>' -i
 
 Type to narrow the list, arrow keys to move, Enter to select: prints the method
 name and full signature. Esc to quit without selecting.
+
+
+Combine with `--doc` to also show the doc comment for the selected method:
+
+```sh
+rust-meth u8 -i --doc
+```
+
+Example: Output when I type `bitor`:
+
+```bash
+✔ Methods on `u8` · bitor
+  bitor  fn(self, Rhs) -> <Self as BitOr<Rhs>>::Output
+
+    Performs the `|` operation.
+    
+    # Examples
+    
+    ```rust
+    assert_eq!(true | false, true);
+```
+
 
 ---
 
