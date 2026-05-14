@@ -118,6 +118,35 @@ Results are sorted by match quality, best first.
 
 ---
 
+## Inline documentation
+
+Pass `--doc` / `-d` to print the doc comment below each method signature:
+
+```sh
+$ rust-meth u8 strict_shr --doc
+rust-meth: methods on `u8` matching "strict_shr"
+
+  strict_shr  const fn(self, u32) -> u8
+
+    Strict shift right. Computes `self >> rhs`, panicking if `rhs` is
+    larger than or equal to the number of bits in `self`.
+
+    # Panics
+
+    ## Overflow behavior
+
+1 method(s)
+```
+
+Works best combined with a filter so you're not scrolling through docs for 200
+methods at once:
+
+```sh
+rust-meth '&str' split_once --doc
+rust-meth 'HashMap<String, u32>' entry --doc
+rust-meth u8 checked --doc
+```
+
 ### Interactive picker
 
 Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:

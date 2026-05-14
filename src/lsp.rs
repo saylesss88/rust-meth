@@ -5,7 +5,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub struct LspTransport {
     pub stdin: ChildStdin,
