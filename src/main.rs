@@ -8,25 +8,26 @@ mod probe;
 
 use std::process;
 
-use dialoguer::{theme::ColorfulTheme, FuzzySelect};
-use fuzzy_matcher::skim::SkimMatcherV2;
+use dialoguer::{FuzzySelect, theme::ColorfulTheme};
 use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 
 /// Prints the CLI help menu with usage patterns and examples.
 fn usage(bin: &str) {
-    eprintln!("Usage: {bin} <type> [filter|-i] [--version]");
+    eprintln!("Usage: {bin} <type> [filter] [-i] [--doc]");
     eprintln!();
     eprintln!("Examples:");
     eprintln!("  {bin} u8");
     eprintln!("  {bin} String");
     eprintln!("  {bin} \"Vec<i32>\"");
     eprintln!("  {bin} \"HashMap<String,u32>\"");
-    eprintln!("  {bin} u8 wrapping         # fuzzy filter");
-    eprintln!("  {bin} u8 -i               # interactive picker");
+    eprintln!("  {bin} u8 wrapping           # fuzzy filter");
+    eprintln!("  {bin} u8 -i                 # interactive picker");
+    eprintln!("  {bin} u8 --doc              # show doc comments inline");
+    eprintln!("  {bin} u8 checked --doc      # filter + docs");
 }
 
 fn main() {
-    // Determine binary name for help text, defaulting to "rust-meth".
     let bin = std::env::current_exe()
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -34,19 +35,12 @@ fn main() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    // Check for help or version flags
-    if args.is_empty() {
-        usage(&bin);
-        process::exit(0);
-    }
-
     if args.is_empty() || args[0] == "--help" || args[0] == "-h" {
         usage(&bin);
         process::exit(0);
     }
 
     if args[0] == "--version" || args[0] == "-V" {
-        // env!("CARGO_PKG_VERSION") fetches the version from Cargo.toml
         println!("{} {}", bin, env!("CARGO_PKG_VERSION"));
         process::exit(0);
     }
@@ -59,13 +53,19 @@ fn main() {
 
     let type_name = &args[0];
     let interactive = args.iter().any(|a| a == "-i" || a == "--interactive");
+    let show_doc = args.iter().any(|a| a == "--doc" || a == "-d");
+
+    // Filter is the first non-flag arg after the type name.
     let filter = if interactive {
         None
     } else {
-        args.get(1).map(String::as_str)
+        args.iter()
+            .skip(1)
+            .find(|a| !a.starts_with('-'))
+            .map(String::as_str)
     };
 
-    // Locate the rust-analyzer binary in the system PATH.
+    // Locate the rust-analyzer binary.
     let ra_path = match analyzer::find_rust_analyzer() {
         Ok(p) => p,
         Err(e) => {
@@ -98,8 +98,14 @@ fn main() {
                     Some(detail) => println!("  {}  {detail}", m.name),
                     None => println!("  {}", m.name),
                 }
+                if show_doc && let Some(doc) = &m.documentation {
+                    println!();
+                    for line in doc.lines().take(6) {
+                        println!("    {}", line.trim_start());
+                    }
+                }
             }
-            Ok(None) => {} // user hit Esc
+            Ok(None) => {}
             Err(e) => {
                 eprintln!("error: {e}");
                 process::exit(1);
@@ -130,7 +136,7 @@ fn main() {
         process::exit(1);
     }
 
-    // Display results in a formatted table with aligned columns.
+    // Header.
     match filter {
         Some(pat) => println!("{bin}: methods on `{type_name}` matching {pat:?}\n"),
         None => println!("{bin}: methods on `{type_name}`\n"),
@@ -143,6 +149,13 @@ fn main() {
         match &m.detail {
             Some(detail) => println!("  {:<name_width$}  {detail}", m.name),
             None => println!("  {}", m.name),
+        }
+        if show_doc && let Some(doc) = &m.documentation {
+            println!();
+            for line in doc.lines().take(6) {
+                println!("    {line}");
+            }
+            println!();
         }
     }
 

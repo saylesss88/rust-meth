@@ -21,6 +21,7 @@ const KIND_METHOD: u64 = 2;
 pub struct MethodInfo {
     pub name: String,
     pub detail: Option<String>, // e.g. "fn len(&self) -> usize"
+    pub documentation: Option<String>,
 }
 
 fn rustup_rust_analyzer() -> Option<PathBuf> {
@@ -90,7 +91,6 @@ pub fn query_methods(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
-    eprintln!("Waiting for rust-analyzer to index… (this may take a moment on first run)");
     wait_for_indexing(&mut lsp)?;
 
     // ── 5. completion — retry until RA returns items ──────────────────────────
@@ -118,7 +118,6 @@ pub fn query_methods(
             }
 
             if attempt < 10 {
-                eprintln!("(attempt {attempt}: not ready, retrying…)");
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
         }
@@ -198,6 +197,7 @@ fn parse_methods(response: &Value) -> anyhow::Result<Vec<MethodInfo>> {
                 .trim()
                 .to_string(),
             detail: item["detail"].as_str().map(str::to_string),
+            documentation: item["documentation"]["value"].as_str().map(str::to_string),
         })
         .filter(|m| !m.name.is_empty())
         .collect();
