@@ -27,7 +27,59 @@ fn usage(bin: &str) {
     eprintln!("  {bin} u8 checked --doc      # filter + docs");
 }
 
+struct Opts {
+    bin: String,
+    type_name: String,
+    filter: Option<String>,
+    interactive: bool,
+    show_doc: bool,
+}
+
 fn main() {
+    if let Err(err) = run() {
+        eprintln!("error: {err}");
+        process::exit(1);
+    }
+}
+
+fn run() -> Result<(), String> {
+    let opts = parse_args()?;
+
+    let ra_path = analyzer::find_rust_analyzer().map_err(|e| e.to_string())?;
+    let methods = analyzer::query_methods(&opts.type_name, &ra_path).map_err(|e| e.to_string())?;
+
+    if opts.interactive {
+        return run_interactive(&opts, &methods);
+    }
+
+    let matched = filter_methods(&methods, opts.filter.as_deref());
+
+    if matched.is_empty() {
+        return Err(match opts.filter.as_deref() {
+            Some(pat) => format!("No methods on `{}` matching {pat:?}", opts.type_name),
+            None => format!("No methods found for type `{}`", opts.type_name),
+        });
+    }
+
+    match opts.filter.as_deref() {
+        Some(pat) => println!(
+            "{}: methods on `{}` matching {pat:?}\n",
+            opts.bin, opts.type_name
+        ),
+        None => println!("{}: methods on `{}`\n", opts.bin, opts.type_name),
+    }
+
+    let name_width = matched.iter().map(|m| m.name.len()).max().unwrap_or(0);
+
+    for m in &matched {
+        print_method(m, name_width, opts.show_doc);
+    }
+
+    println!("\n{} method(s)", matched.len());
+    Ok(())
+}
+
+fn parse_args() -> Result<Opts, String> {
     let bin = std::env::current_exe()
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -35,87 +87,62 @@ fn main() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    if args.is_empty() || args[0] == "--help" || args[0] == "-h" {
+    if args.is_empty() || matches!(args[0].as_str(), "--help" | "-h") {
         usage(&bin);
         process::exit(0);
     }
 
-    if args[0] == "--version" || args[0] == "-V" {
+    if matches!(args[0].as_str(), "--version" | "-V") {
         println!("{} {}", bin, env!("CARGO_PKG_VERSION"));
         process::exit(0);
     }
 
     if args[0].starts_with('-') {
-        eprintln!("error: unexpected argument '{}'", args[0]);
         usage(&bin);
-        process::exit(1);
+        return Err(format!("unexpected argument '{}'", args[0]));
     }
 
-    let type_name = &args[0];
-    let interactive = args.iter().any(|a| a == "-i" || a == "--interactive");
-    let show_doc = args.iter().any(|a| a == "--doc" || a == "-d");
+    let interactive = args
+        .iter()
+        .any(|a| matches!(a.as_str(), "-i" | "--interactive"));
+    let show_doc = args.iter().any(|a| matches!(a.as_str(), "-d" | "--doc"));
 
-    // Filter is the first non-flag arg after the type name.
     let filter = if interactive {
         None
     } else {
-        args.iter()
-            .skip(1)
-            .find(|a| !a.starts_with('-'))
-            .map(String::as_str)
+        args.iter().skip(1).find(|a| !a.starts_with('-')).cloned()
     };
 
-    // Locate the rust-analyzer binary.
-    let ra_path = match analyzer::find_rust_analyzer() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("error: {e}");
-            process::exit(1);
-        }
-    };
+    Ok(Opts {
+        bin,
+        type_name: args[0].clone(),
+        filter,
+        interactive,
+        show_doc,
+    })
+}
 
-    // Spin up an ephemeral LSP session to query available methods for the type.
-    let methods = match analyzer::query_methods(type_name, &ra_path) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("error: {e}");
-            process::exit(1);
-        }
-    };
+fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), String> {
+    let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
 
-    // Interactive fuzzy selector.
-    if interactive {
-        let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
-        let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
-            .with_prompt(format!("Methods on `{type_name}`"))
-            .items(&items)
-            .interact_opt();
+    let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
+        .with_prompt(format!("Methods on `{}`", opts.type_name))
+        .items(&items)
+        .interact_opt()
+        .map_err(|e| e.to_string())?;
 
-        match selection {
-            Ok(Some(idx)) => {
-                let m = &methods[idx];
-                match &m.detail {
-                    Some(detail) => println!("  {}  {detail}", m.name),
-                    None => println!("  {}", m.name),
-                }
-                if show_doc && let Some(doc) = &m.documentation {
-                    println!();
-                    for line in doc.lines().take(6) {
-                        println!("    {}", line.trim_start());
-                    }
-                }
-            }
-            Ok(None) => {}
-            Err(e) => {
-                eprintln!("error: {e}");
-                process::exit(1);
-            }
-        }
-        return;
+    if let Some(idx) = selection {
+        print_method(&methods[idx], 0, opts.show_doc);
     }
 
-    // Apply optional fuzzy filter, sorted by match quality.
-    let matched: Vec<_> = filter.map_or_else(
+    Ok(())
+}
+
+fn filter_methods<'a>(
+    methods: &'a [analyzer::Method],
+    filter: Option<&str>,
+) -> Vec<&'a analyzer::Method> {
+    filter.map_or_else(
         || methods.iter().collect(),
         |pat| {
             let matcher = SkimMatcherV2::default();
@@ -123,41 +150,28 @@ fn main() {
                 .iter()
                 .filter_map(|m| matcher.fuzzy_match(&m.name, pat).map(|score| (score, m)))
                 .collect();
+
             scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
             scored.into_iter().map(|(_, m)| m).collect()
         },
-    );
+    )
+}
 
-    if matched.is_empty() {
-        match filter {
-            Some(pat) => eprintln!("No methods on `{type_name}` matching {pat:?}"),
-            None => eprintln!("No methods found for type `{type_name}`"),
-        }
-        process::exit(1);
+fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
+    match &m.detail {
+        Some(detail) if name_width > 0 => println!("  {:<name_width$}  {detail}", m.name),
+        Some(detail) => println!("  {}  {detail}", m.name),
+        None => println!("  {}", m.name),
     }
 
-    // Header.
-    match filter {
-        Some(pat) => println!("{bin}: methods on `{type_name}` matching {pat:?}\n"),
-        None => println!("{bin}: methods on `{type_name}`\n"),
-    }
-
-    // Compute column width for aligned output.
-    let name_width = matched.iter().map(|m| m.name.len()).max().unwrap_or(0);
-
-    for m in &matched {
-        match &m.detail {
-            Some(detail) => println!("  {:<name_width$}  {detail}", m.name),
-            None => println!("  {}", m.name),
+    if show_doc && let Some(doc) = &m.documentation {
+        println!();
+        for line in doc.lines().take(6) {
+            println!("    {line}");
         }
-        if show_doc && let Some(doc) = &m.documentation {
-            println!();
-            for line in doc.lines().take(6) {
-                println!("    {line}");
-            }
+
+        if name_width > 0 {
             println!();
         }
     }
-
-    println!("\n{} method(s)", matched.len());
 }

@@ -18,7 +18,7 @@ use crate::probe::Probe;
 /// LSP `CompletionItemKind` for Method is 2.
 const KIND_METHOD: u64 = 2;
 
-pub struct MethodInfo {
+pub struct Method {
     pub name: String,
     pub detail: Option<String>, // e.g. "fn len(&self) -> usize"
     pub documentation: Option<String>,
@@ -63,10 +63,7 @@ fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
 }
 
 /// Run a full LSP session against `type_name` and return sorted method names.
-pub fn query_methods(
-    type_name: &str,
-    ra_path: &std::path::Path,
-) -> anyhow::Result<Vec<MethodInfo>> {
+pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Result<Vec<Method>> {
     let probe = Probe::new(type_name)?;
 
     let mut child = Command::new(ra_path)
@@ -177,17 +174,17 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
     .or(Ok(()))
 }
 
-fn parse_methods(response: &Value) -> anyhow::Result<Vec<MethodInfo>> {
+fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
     let items = match &response["result"] {
         Value::Array(arr) => arr.clone(),
         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),
         _ => anyhow::bail!("Unexpected completion response shape: {response}"),
     };
 
-    let mut methods: Vec<MethodInfo> = items
+    let mut methods: Vec<Method> = items
         .iter()
         .filter(|item| item["kind"].as_u64() == Some(KIND_METHOD))
-        .map(|item| MethodInfo {
+        .map(|item| Method {
             name: item["label"]
                 .as_str()
                 .unwrap_or("")
