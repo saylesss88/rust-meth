@@ -27,11 +27,17 @@ fn usage(bin: &str) {
     eprintln!("  {bin} u8 checked --doc      # filter + docs");
 }
 
+/// Holds the parsed command-line configuration.
 struct Opts {
+    /// The name of the binary being executed.
     bin: String,
+    /// The Rust type to inspect (e.g., "String" or "Vec<u8>")
     type_name: String,
+    /// An optional fuzzy search pattern to filter results.
     filter: Option<String>,
+    /// If true, launches a TUI picker for method selection.
     interactive: bool,
+    /// If true, includes doc comments in the output
     show_doc: bool,
 }
 
@@ -42,6 +48,10 @@ fn main() {
     }
 }
 
+/// Orchestrates the tool's execution flow:
+/// 1. Finds rust-analyzer.
+/// 2. Queries for methods.
+/// 3. Routes to interactive or batch output modes.
 fn run() -> Result<(), String> {
     let opts = parse_args()?;
 
@@ -79,6 +89,8 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+/// Hand-rolls argument parsing to support positional arguments and flags.
+/// Returns `Err` if required arguments are missing or invalid.
 fn parse_args() -> Result<Opts, String> {
     let bin = std::env::current_exe()
         .ok()
@@ -122,6 +134,7 @@ fn parse_args() -> Result<Opts, String> {
     })
 }
 
+/// Displays a fuzzy-searchable list in the terminal using `dialoguer`.
 fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), String> {
     let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
 
@@ -138,6 +151,8 @@ fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), Stri
     Ok(())
 }
 
+/// Applies fuzzy matching to the list of methods.
+/// If `filter` is `None`, returns all methods. Results are sorted by match score.
 fn filter_methods<'a>(
     methods: &'a [analyzer::Method],
     filter: Option<&str>,
@@ -157,6 +172,8 @@ fn filter_methods<'a>(
     )
 }
 
+/// Formats and prints a single method to stdout.
+/// Optionally includes documentation snippets (truncated to 6 lines).
 fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
     match &m.detail {
         Some(detail) if name_width > 0 => println!("  {:<name_width$}  {detail}", m.name),
