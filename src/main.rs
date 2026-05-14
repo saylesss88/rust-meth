@@ -51,6 +51,12 @@ fn main() {
         process::exit(0);
     }
 
+    if args[0].starts_with('-') {
+        eprintln!("error: unexpected argument '{}'", args[0]);
+        usage(&bin);
+        process::exit(1);
+    }
+
     let type_name = &args[0];
     let interactive = args.iter().any(|a| a == "-i" || a == "--interactive");
     let filter = if interactive {
