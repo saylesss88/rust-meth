@@ -68,6 +68,41 @@ impl Probe {
         })
     }
 
+    /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
+    /// The cursor position points at the start of the method name.
+    pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
+        let dir = std::env::temp_dir().join(format!("rust-meth-probe-def-{}", std::process::id()));
+        let src_dir = dir.join("src");
+        fs::create_dir_all(&src_dir)?;
+
+        fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )?;
+
+        let preamble_lines =
+            u32::try_from(PREAMBLE.lines().count()).expect("preamble is too long to fit in u32");
+
+        // _x.METHOD_NAME()
+        //     ^--- cursor here (col 7)
+        let source = format!(
+            "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method_name}();\n}}\n"
+        );
+
+        let src_path = src_dir.join("main.rs");
+        fs::write(&src_path, &source)?;
+
+        let dot_line = preamble_lines + 2;
+        let dot_col = u32::try_from("    _x.".len()).expect("failed");
+
+        Ok(Self {
+            dir,
+            src_path,
+            dot_line,
+            dot_col,
+        })
+    }
+
     pub fn src_uri(&self) -> String {
         path_to_uri(&self.src_path)
     }
