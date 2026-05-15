@@ -25,6 +25,8 @@ fn usage(bin: &str) {
     eprintln!("  {bin} u8 -i                 # interactive picker");
     eprintln!("  {bin} u8 --doc              # show doc comments inline");
     eprintln!("  {bin} u8 checked --doc      # filter + docs");
+    eprintln!("Usage: {bin} <type> [filter] [-i] [--doc] [--gd <method>]");
+    eprintln!("  {bin} String --gd len       # go to method definition");
 }
 
 /// Holds the parsed command-line configuration.
@@ -39,6 +41,8 @@ struct Opts {
     interactive: bool,
     /// If true, includes doc comments in the output
     show_doc: bool,
+    /// go-to-definition
+    goto_def: Option<String>,
 }
 
 fn main() {
@@ -56,6 +60,31 @@ fn run() -> Result<(), String> {
     let opts = parse_args()?;
 
     let ra_path = analyzer::find_rust_analyzer().map_err(|e| e.to_string())?;
+
+    // Handle --gd before querying methods. Avoids spinning up RA wice.
+    if let Some(method_name) = &opts.goto_def {
+        match analyzer::query_definition(&opts.type_name, method_name, &ra_path)
+            .map_err(|e| e.to_string())?
+        {
+            Some(def) => {
+                println!(
+                    "  {}::{}  {}:{}",
+                    opts.type_name,
+                    method_name,
+                    def.path,
+                    def.line + 1
+                );
+            }
+            None => {
+                return Err(format!(
+                    "No definition found for `{}::{}` — is rust-src installed?\n\
+                 Run: rustup component add rust-src",
+                    opts.type_name, method_name
+                ));
+            }
+        }
+        return Ok(());
+    }
     let methods = analyzer::query_methods(&opts.type_name, &ra_path).map_err(|e| e.to_string())?;
 
     if opts.interactive {
@@ -97,40 +126,68 @@ fn parse_args() -> Result<Opts, String> {
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
         .unwrap_or_else(|| "rust-meth".to_string());
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args = std::env::args().skip(1);
 
-    if args.is_empty() || matches!(args[0].as_str(), "--help" | "-h") {
+    let Some(first) = args.next() else {
+        usage(&bin);
+        process::exit(0);
+    };
+
+    if matches!(first.as_str(), "--help" | "-h") {
         usage(&bin);
         process::exit(0);
     }
 
-    if matches!(args[0].as_str(), "--version" | "-V") {
+    if matches!(first.as_str(), "--version" | "-V") {
         println!("{} {}", bin, env!("CARGO_PKG_VERSION"));
         process::exit(0);
     }
 
-    if args[0].starts_with('-') {
+    if first.starts_with('-') {
         usage(&bin);
-        return Err(format!("unexpected argument '{}'", args[0]));
+        return Err(format!("unexpected argument '{first}'"));
     }
 
-    let interactive = args
-        .iter()
-        .any(|a| matches!(a.as_str(), "-i" | "--interactive"));
-    let show_doc = args.iter().any(|a| matches!(a.as_str(), "-d" | "--doc"));
+    let type_name = first;
+    let mut filter = None;
+    let mut interactive = false;
+    let mut show_doc = false;
+    let mut goto_def = None;
 
-    let filter = if interactive {
-        None
-    } else {
-        args.iter().skip(1).find(|a| !a.starts_with('-')).cloned()
-    };
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-i" | "--interactive" => interactive = true,
+            "-d" | "--doc" => show_doc = true,
+            "--gd" => {
+                let method = args
+                    .next()
+                    .ok_or_else(|| "--gd requires a method name".to_string())?;
+                goto_def = Some(method);
+            }
+            _ if arg.starts_with('-') => {
+                return Err(format!("unexpected flag '{arg}'"));
+            }
+            _ => {
+                if filter.is_none() {
+                    filter = Some(arg);
+                } else {
+                    return Err(format!("unexpected argument '{arg}'"));
+                }
+            }
+        }
+    }
+
+    if interactive {
+        filter = None;
+    }
 
     Ok(Opts {
         bin,
-        type_name: args[0].clone(),
+        type_name,
         filter,
         interactive,
         show_doc,
+        goto_def,
     })
 }
 

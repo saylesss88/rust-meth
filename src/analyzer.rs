@@ -204,3 +204,106 @@ fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
 
     Ok(methods)
 }
+
+pub struct Definition {
+    pub path: String,
+    pub line: u32,
+}
+
+/// Query go-to-definition for a specific method on a type.
+pub fn query_definition(
+    type_name: &str,
+    method_name: &str,
+    ra_path: &std::path::Path,
+) -> anyhow::Result<Option<Definition>> {
+    let probe = Probe::for_definition(type_name, method_name)?;
+
+    let mut child = Command::new(ra_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    let mut lsp = LspTransport::new(&mut child);
+    let pid = std::process::id();
+
+    lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
+    lsp.recv_until(20, |msg| {
+        (msg["id"] == 1 && msg["result"].is_object()).then_some(())
+    })?;
+
+    lsp.send(&LspTransport::initialized())?;
+    lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
+
+    wait_for_indexing(&mut lsp)?;
+
+    // Retry on "content modified" — RA rejects requests while it's still
+    // processing the file. Same pattern as the completion retry loop.
+    let response = {
+        let mut result = Value::Null;
+        for attempt in 1..=10u64 {
+            let req_id = attempt + 2;
+            lsp.send(&LspTransport::definition(
+                req_id,
+                &probe.src_uri(),
+                probe.dot_line,
+                probe.dot_col,
+            ))?;
+
+            let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
+
+            // -32801 = content modified, -32800 = request cancelled — both mean retry.
+            let is_error = msg["error"]["code"].as_i64().is_some();
+            let is_null = msg["result"].is_null();
+
+            if !is_error && !is_null {
+                result = msg;
+                break;
+            }
+
+            if attempt < 10 {
+                if std::env::var("RUST_METH_DEBUG").is_ok() {
+                    eprintln!("(attempt {attempt}: not ready, retrying…)");
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        }
+        result
+    };
+
+    lsp.send(&LspTransport::shutdown(13))?;
+    let _ = lsp.recv_until(10, |msg| (msg["id"] == 13).then_some(()));
+    lsp.send(&LspTransport::exit())?;
+    let _ = child.wait();
+
+    parse_definition(response)
+}
+
+fn parse_definition(response: Value) -> anyhow::Result<Option<Definition>> {
+    let location = match &response["result"] {
+        Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
+        single if single.is_object() => single.clone(),
+        _ => return Ok(None),
+    };
+
+    let uri = location["uri"].as_str().unwrap_or("").to_string();
+    let line = location["range"]["start"]["line"].as_u64().unwrap_or(0) as u32;
+
+    if uri.is_empty() {
+        return Ok(None);
+    }
+
+    let path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
+
+    // Trim the toolchain path down to library/core/src/... for readability.
+    // Matches both rustup and system toolchain paths.
+    let short = if let Some(idx) = path.find("/library/") {
+        path[idx + 1..].to_string() // "library/core/src/num/uint_macros.rs"
+    } else if let Some(idx) = path.find("/src/") {
+        path[idx + 1..].to_string()
+    } else {
+        path
+    };
+
+    Ok(Some(Definition { path: short, line }))
+}
