@@ -24,7 +24,13 @@ types, and generic combinations of them. Support for third-party crate types
 - `rust-analyzer` on your PATH:
 
 ```sh
-  rustup component add rust-analyzer
+rustup component add rust-analyzer
+```
+
+- Go-To-Definition also requires `rust-src`
+
+```sh
+rustup component add rust-src
 ```
 
 ---
@@ -40,7 +46,7 @@ cargo install rust-meth
 ## Usage
 
 ```sh
-rust-meth <type> [filter | -i]
+$ rust-meth <type> [filter | -i]
 ```
 
 ```bash
@@ -87,7 +93,7 @@ and nightly-only APIs. Not a static list.
 The filter argument uses fuzzy matching, so typos and partials work:
 
 ```sh
-rust-meth u8 wrapng       # finds all wrapping_* methods
+$ rust-meth u8 wrapng       # finds all wrapping_* methods
 ```
 
 ```sh
@@ -143,9 +149,9 @@ Works best combined with a filter so you're not scrolling through docs for 200
 methods at once:
 
 ```sh
-rust-meth '&str' split_once --doc
-rust-meth 'HashMap<String, u32>' entry --doc
-rust-meth u8 checked --doc
+$ rust-meth '&str' split_once --doc
+$ rust-meth 'HashMap<String, u32>' entry --doc
+$ rust-meth u8 checked --doc
 ```
 
 Also works in interactive mode. Select a method and the doc comment prints below
@@ -156,8 +162,8 @@ the signature. Examples shown in next section.
 Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:
 
 ```sh
-rust-meth u8 -i
-rust-meth '&str' -i
+$ rust-meth u8 -i
+$ rust-meth '&str' -i
 ```
 
 ```sh
@@ -189,7 +195,7 @@ name and full signature. Esc to quit without selecting.
 Combine with `--doc` to also show the doc comment for the selected method:
 
 ```sh
-rust-meth u8 -i --doc
+$ rust-meth u8 -i --doc
 ```
 
 Example: Output when I type `bitor`:
@@ -206,6 +212,38 @@ Example: Output when I type `bitor`:
     assert_eq!(true | false, true);
 ```
 
+---
+
+## Go to definition
+
+Pass `--gd <method>` to find where a method is defined in the standard library source:
+
+```sh
+$ rust-meth u8 --gd checked_add
+u8::checked_add  library/core/src/num/uint_macros.rs:902
+
+$ rust-meth '&str' --gd split_once
+&str::split_once  library/core/src/str/mod.rs:2241
+```
+
+**Why this is useful:** your editor's go-to-definition already does this for
+code you're actively editing, but `rust-meth --gd` works anywhere, no open
+project, no editor. When you're exploring an unfamiliar type in the REPL or
+scratching out some code in a standalone file, you can jump straight to the
+stdlib implementation to understand exactly what a method does, how it handles
+edge cases, or what it delegates to. Pair it with `-i` to first discover the
+method you want, then look it up:
+
+```sh
+$ rust-meth u8 -i          # pick a method interactively
+$ rust-meth u8 --gd isqrt  # then jump to its definition
+```
+
+Output:
+
+```sh
+u8::isqrt  library/core/src/num/uint_macros.rs:3684
+```
 
 ---
 
