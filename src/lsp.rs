@@ -111,6 +111,18 @@ impl LspTransport {
         })
     }
 
+    pub fn definition(id: u64, uri: &str, line: u32, character: u32) -> Value {
+        json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "textDocument/definition",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character }
+            }
+        })
+    }
+
     pub fn completion(id: u64, uri: &str, line: u32, character: u32) -> Value {
         json!({
             "jsonrpc": "2.0",
