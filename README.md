@@ -1,11 +1,30 @@
 # rust-meth
 
-Print every method available on any Rust type, with full signatures. Powered by
-`rust-analyzer`.
+Discover the methods available on any Rust type, with fuzzy filtering, inline
+docs, interactive selection, and go-to-definition into the standard library
+source. Powered by `rust-analyzer`.
 
-It works on any type your toolchain knows about: primitives, standard library
+Works on any type your toolchain knows about: primitives, standard library
 types, and generic combinations of them. Support for third-party crate types
 (e.g. `serde_json::Value`) is not yet implemented.
+
+## Highlights
+
+- Inspect any type's methods and full signatures
+- Fuzzy-filter results with partial or typo-ridden input
+- Show doc comments inline with `--doc`
+- Browse methods interactively with `-i`
+- Jump to the stdlib source of any method with `--gd`
+- Open that definition directly in your `$EDITOR` with `--open`
+
+## Why it's useful
+
+Rust already gives you editor-side go-to-definition, but that only works inside
+an open project. `rust-meth` works anywhere, no project, no editor, no LSP
+session. Stay in the terminal while you discover methods, read signatures, and
+jump into the stdlib source. Because it uses `rust-analyzer` under the hood, the
+output reflects your actual installed toolchain rather than a static list.
+Including nightly-only APIs, deprecated methods, and blanket trait impls.
 
 ## Table of Contents
 
@@ -15,6 +34,7 @@ types, and generic combinations of them. Support for third-party crate types
   - [Fuzzy filter](#fuzzy-filter)
   - [Inline documentation](#inline-documentation)
   - [Interactive picker](#interactive-picker)
+  - [Go-to-definition](#go-to-definition)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -191,7 +211,6 @@ $ rust-meth 'HashMap<String, u32>' -i
 Type to narrow the list, arrow keys to move, Enter to select: prints the method
 name and full signature. Esc to quit without selecting.
 
-
 Combine with `--doc` to also show the doc comment for the selected method:
 
 ```sh
@@ -200,23 +219,24 @@ $ rust-meth u8 -i --doc
 
 Example: Output when I type `bitor`:
 
-```bash
+````bash
 ✔ Methods on `u8` · bitor
   bitor  fn(self, Rhs) -> <Self as BitOr<Rhs>>::Output
 
     Performs the `|` operation.
-    
+
     # Examples
-    
+
     ```rust
     assert_eq!(true | false, true);
-```
+````
 
 ---
 
 ## Go to definition
 
-Pass `--gd <method>` to find where a method is defined in the standard library source:
+Pass `--gd <method>` to find where a method is defined in the standard library
+source:
 
 ```sh
 $ rust-meth u8 --gd checked_add
@@ -226,28 +246,44 @@ $ rust-meth '&str' --gd split_once
 &str::split_once  library/core/src/str/mod.rs:2241
 ```
 
-**Why this is useful:** your editor's go-to-definition already does this for
-code you're actively editing, but `rust-meth --gd` works anywhere, no open
-project, no editor. When you're exploring an unfamiliar type in the REPL or
-scratching out some code in a standalone file, you can jump straight to the
-stdlib implementation to understand exactly what a method does, how it handles
-edge cases, or what it delegates to. Pair it with `-i` to first discover the
-method you want, then look it up:
+Add `--open` / `-o` to jump straight to that line in your `$EDITOR`:
 
 ```sh
-$ rust-meth u8 -i          # pick a method interactively
-$ rust-meth u8 --gd isqrt  # then jump to its definition
+$ rust-meth u8 --gd checked_add --open
+u8::checked_add  library/core/src/num/uint_macros.rs:902
+# opens uint_macros.rs at line 902 in $EDITOR
 ```
 
-Output:
+Supports `hx` / `helix`, `nvim`, `vim`, `emacs`, and `code`. Any editor that
+accepts `+LINE file` on the command line will also work.
+
+Requires the `rust-src` component and `$EDITOR` to be set:
 
 ```sh
+rustup component add rust-src
+export EDITOR=hx  # or nvim, vim, etc.
+```
+
+**Why this is useful:** your editor's go-to-definition already does this for
+code you're actively editing, but `rust-meth --gd` works anywhere — no open
+project, no LSP session, no editor required. When you're exploring an unfamiliar
+type or scratching out code in a standalone file, you can jump straight to the
+stdlib implementation to understand exactly what a method does, how it handles
+edge cases, or what it delegates to.
+
+Pair it with `-i` to first discover the method you want, then open it:
+
+```sh
+$ rust-meth u8 -i               # pick a method interactively
+$ rust-meth u8 --gd isqrt       # find it
+$ rust-meth u8 --gd isqrt --open  # open it
 u8::isqrt  library/core/src/num/uint_macros.rs:3684
 ```
 
----
-
 ## How it works
+
+<details>
+<summary> How it works </summary>
 
 For each query, `rust-meth`:
 
@@ -275,6 +311,8 @@ For each query, `rust-meth`:
 6. Prints names and signatures, then shuts RA down
 
 The temporary project is cleaned up automatically on exit.
+
+</details>
 
 ---
 

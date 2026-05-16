@@ -277,36 +277,65 @@ pub fn query_definition(
     lsp.send(&LspTransport::exit())?;
     let _ = child.wait();
 
-    parse_definition(response)
+    Ok(parse_definition(&response))
 }
 
-fn parse_definition(response: Value) -> anyhow::Result<Option<Definition>> {
+// fn parse_definition(response: &Value) -> anyhow::Result<Option<Definition>> {
+//     let location = match &response["result"] {
+//         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
+//         single if single.is_object() => single.clone(),
+//         _ => return Ok(None),
+//     };
+
+//     let uri = location["uri"].as_str().unwrap_or("").to_string();
+//     let line = location["range"]["start"]["line"].as_u64().unwrap_or(0) as u32;
+
+//     if uri.is_empty() {
+//         return Ok(None);
+//     }
+
+//     let full_path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
+
+//     let path = if let Some(idx) = full_path.find("/library/") {
+//         full_path[idx + 1..].to_string()
+//     } else if let Some(idx) = full_path.find("/src/") {
+//         full_path[idx + 1..].to_string()
+//     } else {
+//         full_path.clone()
+//     };
+
+//     Ok(Some(Definition {
+//         path,
+//         full_path,
+//         line,
+//     }))
+// }
+//
+fn parse_definition(response: &Value) -> Option<Definition> {
     let location = match &response["result"] {
         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
         single if single.is_object() => single.clone(),
-        _ => return Ok(None),
+        _ => return None,
     };
 
     let uri = location["uri"].as_str().unwrap_or("").to_string();
-    let line = location["range"]["start"]["line"].as_u64().unwrap_or(0) as u32;
+    let line = u32::try_from(location["range"]["start"]["line"].as_u64().unwrap_or(0))
+        .expect("LSP definition line should fit in u32");
 
     if uri.is_empty() {
-        return Ok(None);
+        return None;
     }
 
     let full_path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
 
-    let path = if let Some(idx) = full_path.find("/library/") {
-        full_path[idx + 1..].to_string()
-    } else if let Some(idx) = full_path.find("/src/") {
-        full_path[idx + 1..].to_string()
-    } else {
-        full_path.clone()
-    };
+    let path = full_path
+        .find("/library/")
+        .or_else(|| full_path.find("/src/"))
+        .map_or_else(|| full_path.clone(), |idx| full_path[idx + 1..].to_string());
 
-    Ok(Some(Definition {
+    Some(Definition {
         path,
         full_path,
         line,
-    }))
+    })
 }
