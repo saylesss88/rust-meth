@@ -9,6 +9,7 @@
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 use serde_json::Value;
 
@@ -17,6 +18,8 @@ use crate::probe::Probe;
 
 /// LSP `CompletionItemKind` value corresponding to a Method.
 const KIND_METHOD: u64 = 2;
+
+static RA_PATH_CACHE: OnceLock<PathBuf> = OnceLock::new();
 
 /// Represents a method extracted from a `rust-analyzer` completion list.
 pub struct Method {
@@ -52,20 +55,23 @@ fn rustup_rust_analyzer() -> Option<PathBuf> {
 ///
 /// Returns an error if `rust-analyzer` cannot be found via either mechanism,
 /// providing user-friendly instructions on how to install it.
+///
 pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
-    if let Ok(path) = which("rust-analyzer") {
-        return Ok(path);
+    if let Some(path) = RA_PATH_CACHE.get() {
+        return Ok(path.clone());
     }
-
-    if let Some(path) = rustup_rust_analyzer() {
-        return Ok(path);
-    }
-
-    anyhow::bail!(
-        "rust-analyzer not found.\n\
-         Install it with: rustup component add rust-analyzer\n\
-         or ensure it is on your PATH."
-    )
+    let path = if let Ok(path) = which("rust-analyzer") {
+        path
+    } else if let Some(path) = rustup_rust_analyzer() {
+        path
+    } else {
+        anyhow::bail!(
+            "rust-analyzer not found.\n\
+             Install it with: rustup component add rust-analyzer\n\
+             or ensure it is on your PATH."
+        )
+    };
+    Ok(RA_PATH_CACHE.get_or_init(|| path).clone())
 }
 
 fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
@@ -142,8 +148,17 @@ pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Resu
             }
 
             if attempt < 10 {
-                std::thread::sleep(std::time::Duration::from_millis(500));
+                let delay = match attempt {
+                    1 => 50,  // 50ms - RA might be ready immediately
+                    2 => 100, // 100ms
+                    3 => 200, // 200ms
+                    _ => 300, // 300ms for later attempts
+                };
+                std::thread::sleep(std::time::Duration::from_millis(delay));
             }
+            // if attempt < 10 {
+            //     std::thread::sleep(std::time::Duration::from_millis(500));
+            // }
         }
         response
     };
@@ -168,17 +183,20 @@ pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Resu
 ///   - textDocument/publishDiagnostics
 fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
+    let start = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(10); // Hard timeout
+
     lsp.recv_until(200, |msg| {
+        // Timeout escape hatch
+        if start.elapsed() > timeout {
+            return Some(()); // Give up and try anyway
+        }
+
         let method = msg["method"].as_str().unwrap_or("");
         if debug {
             eprintln!("[debug] {method}");
-            if method == "$/progress" {
-                eprintln!(
-                    "        token={} kind={}",
-                    msg["params"]["token"], msg["params"]["value"]["kind"]
-                );
-            }
         }
+
         match method {
             "$/progress" => {
                 if msg["params"]["value"]["kind"] == "end" {
@@ -194,12 +212,47 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
                     None
                 }
             }
-            "workspace/diagnostic/refresh" | "textDocument/publishDiagnostics" => Some(()),
+            // These are strong signals that indexing is done
+            "textDocument/publishDiagnostics" | "workspace/diagnostic/refresh" => Some(()),
             _ => None,
         }
     })
     .or(Ok(()))
 }
+// fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
+//     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
+//     lsp.recv_until(200, |msg| {
+//         let method = msg["method"].as_str().unwrap_or("");
+//         if debug {
+//             eprintln!("[debug] {method}");
+//             if method == "$/progress" {
+//                 eprintln!(
+//                     "        token={} kind={}",
+//                     msg["params"]["token"], msg["params"]["value"]["kind"]
+//                 );
+//             }
+//         }
+//         match method {
+//             "$/progress" => {
+//                 if msg["params"]["value"]["kind"] == "end" {
+//                     Some(())
+//                 } else {
+//                     None
+//                 }
+//             }
+//             "experimental/serverStatus" => {
+//                 if msg["params"]["quiescent"] == true {
+//                     Some(())
+//                 } else {
+//                     None
+//                 }
+//             }
+//             "workspace/diagnostic/refresh" | "textDocument/publishDiagnostics" => Some(()),
+//             _ => None,
+//         }
+//     })
+//     .or(Ok(()))
+// }
 
 /// Filters, sanitizes, and deduplicates the raw JSON arrays returned by the LSP completion query.
 ///
@@ -273,15 +326,27 @@ pub fn query_definition(
     let mut lsp = LspTransport::new(&mut child);
     let pid = std::process::id();
 
+    // Send didOpen immediately after initialized, don't wait
     lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
     lsp.recv_until(20, |msg| {
         (msg["id"] == 1 && msg["result"].is_object()).then_some(())
     })?;
 
+    // Send both notifications back-to-back (no wait needed)
     lsp.send(&LspTransport::initialized())?;
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
 
+    // Now wait for indexing
     wait_for_indexing(&mut lsp)?;
+    // lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
+    // lsp.recv_until(20, |msg| {
+    //     (msg["id"] == 1 && msg["result"].is_object()).then_some(())
+    // })?;
+
+    // lsp.send(&LspTransport::initialized())?;
+    // lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
+
+    // wait_for_indexing(&mut lsp)?;
 
     // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
