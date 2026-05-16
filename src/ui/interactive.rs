@@ -6,6 +6,7 @@ use crate::analyzer;
 
 use super::{args::Opts, display::print_method};
 
+/// Displays a fuzzy-searchable list in the terminal using `dialoguer`.
 pub fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), String> {
     let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
 
@@ -22,6 +23,7 @@ pub fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), 
     Ok(())
 }
 
+/// Applies fuzzy matching to the list of methods.
 pub fn filter_methods<'a>(
     methods: &'a [analyzer::Method],
     filter: Option<&str>,

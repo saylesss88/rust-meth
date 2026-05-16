@@ -1,5 +1,6 @@
 use std::process;
 
+/// Holds the parsed command-line configuration.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Opts {
     pub bin: String,
@@ -12,6 +13,7 @@ pub struct Opts {
     pub open_doc: bool,
 }
 
+/// Prints the CLI help menu with usage patterns and examples.
 pub fn usage(bin: &str) {
     eprintln!("Usage: {bin} <type> [filter] [-i] [--doc] [--gd <method>] [--open] [--open-doc]");
     eprintln!();
@@ -30,6 +32,7 @@ pub fn usage(bin: &str) {
     eprintln!("  {bin} u8 --gd checked_add --open-doc  # open in browser");
 }
 
+/// Hand-rolls argument parsing to support positional arguments and flags.
 pub fn parse_args() -> Result<Opts, String> {
     let bin = std::env::current_exe()
         .ok()

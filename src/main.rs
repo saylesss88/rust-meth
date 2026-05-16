@@ -2,6 +2,8 @@
 //! It leverages `rust-analyzer` via the Language Server Protocol (LSP) to provide
 //! accurate, context-aware method resolution.
 
+#![deny(missing_docs)]
+
 mod analyzer;
 mod lsp;
 mod probe;
