@@ -10,6 +10,7 @@ mod probe;
 mod ui;
 
 use std::process;
+use std::time::Instant;
 
 fn main() {
     if let Err(err) = run() {
@@ -69,11 +70,17 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
 
+    let start = Instant::now();
     let spinner = ui::indexing(&opts.type_name);
 
     let methods = match analyzer::query_methods(&opts.type_name, &ra_path) {
         Ok(methods) => {
-            spinner.finish_with_message(format!("✓ Found {} methods", methods.len()));
+            let elapsed = start.elapsed();
+            spinner.finish_with_message(format!(
+                "✓ Found {} methods ({:.1}s)",
+                methods.len(),
+                elapsed.as_secs_f64()
+            ));
             methods
         }
         Err(e) => {
@@ -81,6 +88,16 @@ fn run() -> Result<(), String> {
             return Err(e.to_string());
         }
     };
+    // let methods = match analyzer::query_methods(&opts.type_name, &ra_path) {
+    //     Ok(methods) => {
+    //         spinner.finish_with_message(format!("✓ Found {} methods", methods.len()));
+    //         methods
+    //     }
+    //     Err(e) => {
+    //         spinner.finish_with_message("✗ Query failed");
+    //         return Err(e.to_string());
+    //     }
+    // };
 
     if opts.interactive {
         return ui::run_interactive(&opts, &methods);
