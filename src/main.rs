@@ -31,40 +31,56 @@ fn run() -> Result<(), String> {
     if let Some(method_name) = &opts.goto_def {
         let spinner = ui::definition(&opts.type_name, method_name);
 
-        spinner.finish_and_clear();
-        if let Some(def) = analyzer::query_definition(&opts.type_name, method_name, &ra_path)
-            .map_err(|e| e.to_string())?
-        {
-            println!(
-                "{}::{}  {}:{}",
-                opts.type_name,
-                method_name,
-                def.path,
-                def.line + 1
-            );
-            if opts.open_def {
-                ui::open_in_editor(&def)?;
-            }
+        match analyzer::query_definition(&opts.type_name, method_name, &ra_path) {
+            Ok(Some(def)) => {
+                spinner.finish_with_message("✓ Found definition");
 
-            if opts.open_doc {
-                let url = ui::build_doc_url(&opts.type_name, method_name, &def);
-                ui::open_in_browser(&url)?;
-            }
-        } else {
-            spinner.finish_and_clear();
+                println!(
+                    "{}::{}  {}:{}",
+                    opts.type_name,
+                    method_name,
+                    def.path,
+                    def.line + 1
+                );
 
-            return Err(format!(
-                "No definition found for `{}::{}` — is rust-src installed?\n\
-                  Run: rustup component add rust-src",
-                opts.type_name, method_name
-            ));
+                if opts.open_def {
+                    ui::open_in_editor(&def)?;
+                }
+
+                if opts.open_doc {
+                    let url = ui::build_doc_url(&opts.type_name, method_name, &def);
+                    ui::open_in_browser(&url)?;
+                }
+            }
+            Ok(None) => {
+                spinner.finish_with_message("✗ Not found");
+
+                return Err(format!(
+                    "No definition found for `{}::{}` — is rust-src installed?\n\
+                     Run: rustup component add rust-src",
+                    opts.type_name, method_name
+                ));
+            }
+            Err(e) => {
+                spinner.finish_with_message("✗ Query failed");
+                return Err(e.to_string());
+            }
         }
         return Ok(());
     }
 
     let spinner = ui::indexing(&opts.type_name);
-    let methods = analyzer::query_methods(&opts.type_name, &ra_path).map_err(|e| e.to_string())?;
-    spinner.finish_and_clear();
+
+    let methods = match analyzer::query_methods(&opts.type_name, &ra_path) {
+        Ok(methods) => {
+            spinner.finish_with_message(format!("✓ Found {} methods", methods.len()));
+            methods
+        }
+        Err(e) => {
+            spinner.finish_with_message("✗ Query failed");
+            return Err(e.to_string());
+        }
+    };
 
     if opts.interactive {
         return ui::run_interactive(&opts, &methods);
@@ -81,10 +97,10 @@ fn run() -> Result<(), String> {
 
     match opts.filter.as_deref() {
         Some(pat) => println!(
-            "{}: methods on `{}` matching {pat:?}\n",
+            "\n{}: methods on `{}` matching {pat:?}\n",
             opts.bin, opts.type_name
         ),
-        None => println!("{}: methods on `{}`\n", opts.bin, opts.type_name),
+        None => println!("\n{}: methods on `{}`\n", opts.bin, opts.type_name),
     }
 
     let name_width = matched.iter().map(|m| m.name.len()).max().unwrap_or(0);
