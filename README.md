@@ -38,6 +38,7 @@ deprecated methods, and nightly-only APIs. Not a static list.
   - [Inline documentation](#inline-documentation)
   - [Interactive picker](#interactive-picker)
   - [Go-to-definition](#go-to-definition)
+  - [Open in browser](#open-in-browser)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -260,6 +261,33 @@ $ rust-meth u8 --gd isqrt       # find it
 $ rust-meth u8 --gd isqrt --open  # open it
 u8::isqrt  library/core/src/num/uint_macros.rs:3684
 ```
+
+<a id="open-in-browser"></a>
+### Open in browser
+
+Pass `--open-doc` with `--gd <method>` to open the official documentation for
+that method directly in your browser:
+
+```sh
+$ rust-meth u8 --gd isqrt --open-doc
+u8::isqrt  library/core/src/num/uint_macros.rs:3684
+Opening in existing browser session.
+```
+
+Works for primitives, stdlib structs, and collections:
+
+```sh
+$ rust-meth u8 --gd isqrt --open-doc          # doc.rust-lang.org/std/primitive.u8.html#method.isqrt
+$ rust-meth String --gd len --open-doc         # doc.rust-lang.org/std/string/struct.String.html#method.len
+$ rust-meth 'Vec<u8>' --gd push --open-doc     # doc.rust-lang.org/std/vec/struct.Vec.html#method.push
+$ rust-meth 'HashMap<String, u32>' --gd get --open-doc  # doc.rust-lang.org/std/collections/hash_map/struct.HashMap.html#method.get
+```
+
+For third-party crate types, it falls back to the corresponding `docs.rs` page.
+
+You cannot combine `--open` and `--open-doc` — pick one.
+
+---
 
 <a id="how-it-works"></a>
 ## How it works

@@ -248,21 +248,20 @@ pub fn open_in_browser(url: &str) -> Result<(), String> {
 }
 
 pub fn build_doc_url(type_name: &str, method_name: &str, def: &analyzer::Definition) -> String {
-    // Strip generics: "Vec<i32>" → "Vec"
     let bare_type = type_name.split('<').next().unwrap_or(type_name);
     let type_lower = bare_type.to_lowercase();
 
     if is_stdlib_path(&def.full_path) {
         let (base, kind) = stdlib_type_info(bare_type);
-        if base.is_empty() {
-            format!("https://doc.rust-lang.org/std/{kind}.{type_lower}.html#method.{method_name}")
-        } else if base == "primitive" {
+        if base == "primitive" {
             format!(
                 "https://doc.rust-lang.org/std/primitive.{type_lower}.html#method.{method_name}"
             )
+        } else if base.is_empty() {
+            format!("https://doc.rust-lang.org/std/{kind}.{bare_type}.html#method.{method_name}")
         } else {
             format!(
-                "https://doc.rust-lang.org/std/{base}/{kind}.{type_lower}.html#method.{method_name}"
+                "https://doc.rust-lang.org/std/{base}/{kind}.{bare_type}.html#method.{method_name}"
             )
         }
     } else if let Some(crate_name) = cargo_crate_name(&def.full_path) {
