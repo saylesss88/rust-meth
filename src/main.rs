@@ -29,38 +29,42 @@ fn run() -> Result<(), String> {
 
     // Handle --gd before querying methods. Avoids spinning up RA twice.
     if let Some(method_name) = &opts.goto_def {
-        match analyzer::query_definition(&opts.type_name, method_name, &ra_path)
+        let spinner = ui::definition(&opts.type_name, method_name);
+
+        spinner.finish_and_clear();
+        if let Some(def) = analyzer::query_definition(&opts.type_name, method_name, &ra_path)
             .map_err(|e| e.to_string())?
         {
-            Some(def) => {
-                println!(
-                    "{}::{}  {}:{}",
-                    opts.type_name,
-                    method_name,
-                    def.path,
-                    def.line + 1
-                );
-                if opts.open_def {
-                    ui::open_in_editor(&def)?;
-                }
+            println!(
+                "{}::{}  {}:{}",
+                opts.type_name,
+                method_name,
+                def.path,
+                def.line + 1
+            );
+            if opts.open_def {
+                ui::open_in_editor(&def)?;
+            }
 
-                if opts.open_doc {
-                    let url = ui::build_doc_url(&opts.type_name, method_name, &def);
-                    ui::open_in_browser(&url)?;
-                }
+            if opts.open_doc {
+                let url = ui::build_doc_url(&opts.type_name, method_name, &def);
+                ui::open_in_browser(&url)?;
             }
-            None => {
-                return Err(format!(
-                    "No definition found for `{}::{}` — is rust-src installed?\n\
-                     Run: rustup component add rust-src",
-                    opts.type_name, method_name
-                ));
-            }
+        } else {
+            spinner.finish_and_clear();
+
+            return Err(format!(
+                "No definition found for `{}::{}` — is rust-src installed?\n\
+                  Run: rustup component add rust-src",
+                opts.type_name, method_name
+            ));
         }
         return Ok(());
     }
 
+    let spinner = ui::indexing(&opts.type_name);
     let methods = analyzer::query_methods(&opts.type_name, &ra_path).map_err(|e| e.to_string())?;
+    spinner.finish_and_clear();
 
     if opts.interactive {
         return ui::run_interactive(&opts, &methods);

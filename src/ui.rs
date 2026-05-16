@@ -16,9 +16,13 @@ pub mod interactive;
 /// URL construction and external browser/editor integration.
 pub mod links;
 
+/// Terminal spinner utilities for progress indication.
+pub mod spinner;
+
 // --- Re-exports ---
 
 pub use args::parse_args;
 pub use display::print_method;
 pub use interactive::{filter_methods, run_interactive};
 pub use links::{build_doc_url, open_in_browser, open_in_editor};
+pub use spinner::{definition, indexing};
