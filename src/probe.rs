@@ -77,7 +77,7 @@ impl Probe {
 
         fs::write(
             dir.join("Cargo.toml"),
-            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
         )?;
 
         let preamble_lines =
