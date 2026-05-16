@@ -15,12 +15,16 @@ use serde_json::Value;
 use crate::lsp::LspTransport;
 use crate::probe::Probe;
 
-/// LSP `CompletionItemKind` for Method is 2.
+/// LSP `CompletionItemKind` value corresponding to a Method.
 const KIND_METHOD: u64 = 2;
 
+/// Represents a method extracted from a `rust-analyzer` completion list.
 pub struct Method {
+    /// The plain name of the method (e.g., `"len"`).
     pub name: String,
-    pub detail: Option<String>, // e.g. "fn len(&self) -> usize"
+    /// The full method signature hint provided by the LSP server (e.g., `"pub const fn len(&self) -> usize"`).
+    pub detail: Option<String>,
+    /// Markdown or plaintext documentation extracted from the item.
     pub documentation: Option<String>,
 }
 
@@ -38,7 +42,16 @@ fn rustup_rust_analyzer() -> Option<PathBuf> {
     (!path.is_empty()).then(|| path.into())
 }
 
-/// Find `rust-analyzer` on PATH, or in the active rustup toolchain bin dir.
+/// Locates the `rust-analyzer` binary.
+///
+/// It first searches the system `PATH` env variable using the system `which` utility.
+/// If missing, it attempts to fall back to the active toolchain's binary directory
+/// using `rustup which rust-analyzer`.
+///
+/// # Errors
+///
+/// Returns an error if `rust-analyzer` cannot be found via either mechanism,
+/// providing user-friendly instructions on how to install it.
 pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     if let Ok(path) = which("rust-analyzer") {
         return Ok(path);
@@ -62,7 +75,21 @@ fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
     Ok(s.into())
 }
 
-/// Run a full LSP session against `type_name` and return sorted method names.
+/// Queries `rust-analyzer` for all available methods on a given type type expression.
+///
+/// This spins up an ephemeral LSP session, generates a mock workspace via a [`Probe`],
+/// triggers a completion request at the appropriate line/column location, and parses the results.
+///
+/// # Environment Variables
+///
+/// * `RUST_METH_DEBUG` - If set, logs raw LSP method lifecycle events to standard error.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * Spawning the `rust-analyzer` subprocess fails.
+/// * The LSP server communication channels break.
+/// * The server returns an unexpectedly structured or malformed JSON payload.
 pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Result<Vec<Method>> {
     let probe = Probe::new(type_name)?;
 
@@ -174,6 +201,12 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
     .or(Ok(()))
 }
 
+/// Filters, sanitizes, and deduplicates the raw JSON arrays returned by the LSP completion query.
+///
+/// # Panics
+///
+/// This function does not panic on missing `label` sub-keys, substituting them gracefully
+/// with blank tokens.
 fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
     let items = match &response["result"] {
         Value::Array(arr) => arr.clone(),
@@ -205,13 +238,25 @@ fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
     Ok(methods)
 }
 
+/// Contains source definition location mappings returned by an LSP `textDocument/definition` call.
 pub struct Definition {
-    pub path: String,      // short display path e.g. library/core/src/num/uint_macros.rs
-    pub full_path: String, // absolute path for opening in editor
+    /// A shortened path string tailored for display terminals (e.g., `"library/core/src/num/uint_macros.rs"`).
+    pub path: String,
+    /// The unadulterated, absolute path prefix on the local filesystem.
+    pub full_path: String,
+    /// 0-indexed line number where the source item is declared.
     pub line: u32,
 }
 
-/// Query go-to-definition for a specific method on a type.
+/// Queries `rust-analyzer` for the precise upstream source file declaration layout of a specific method.
+///
+/// Under the hood, this sets up a mock environment containing an isolated invocation of your method,
+/// queries `textDocument/definition`, and intercepts the target file location coordinates.
+///
+/// # Errors
+///
+/// Returns an error if the underlying LSP runtime breaks, or if `rust-analyzer` encounters structural errors.
+/// If a method exists but has no discoverable source code location definitions, it evaluates cleanly into `Ok(None)`.
 pub fn query_definition(
     type_name: &str,
     method_name: &str,
@@ -238,7 +283,7 @@ pub fn query_definition(
 
     wait_for_indexing(&mut lsp)?;
 
-    // Retry on "content modified" — RA rejects requests while it's still
+    // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
     let response = {
         let mut result = Value::Null;
@@ -253,7 +298,7 @@ pub fn query_definition(
 
             let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
 
-            // -32801 = content modified, -32800 = request cancelled — both mean retry.
+            // -32801 = content modified, -32800 = request cancelled. Both mean retry.
             let is_error = msg["error"]["code"].as_i64().is_some();
             let is_null = msg["result"].is_null();
 
@@ -280,37 +325,11 @@ pub fn query_definition(
     Ok(parse_definition(&response))
 }
 
-// fn parse_definition(response: &Value) -> anyhow::Result<Option<Definition>> {
-//     let location = match &response["result"] {
-//         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
-//         single if single.is_object() => single.clone(),
-//         _ => return Ok(None),
-//     };
-
-//     let uri = location["uri"].as_str().unwrap_or("").to_string();
-//     let line = location["range"]["start"]["line"].as_u64().unwrap_or(0) as u32;
-
-//     if uri.is_empty() {
-//         return Ok(None);
-//     }
-
-//     let full_path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
-
-//     let path = if let Some(idx) = full_path.find("/library/") {
-//         full_path[idx + 1..].to_string()
-//     } else if let Some(idx) = full_path.find("/src/") {
-//         full_path[idx + 1..].to_string()
-//     } else {
-//         full_path.clone()
-//     };
-
-//     Ok(Some(Definition {
-//         path,
-//         full_path,
-//         line,
-//     }))
-// }
-//
+/// Normalizes the location array or object mapping payload returned by the LSP server into a [`Definition`].
+///
+/// # Panics
+///
+/// Panics if the line position value returned by the LSP protocol fails to map cleanly into a `u32`.
 fn parse_definition(response: &Value) -> Option<Definition> {
     let location = match &response["result"] {
         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
