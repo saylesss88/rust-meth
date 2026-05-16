@@ -281,7 +281,7 @@ fn is_stdlib_path(full_path: &str) -> bool {
         || full_path.contains("/library/alloc/")
 }
 
-/// Returns (module_path, kind) for a stdlib type.
+/// Returns (`module_path`, `kind`) for a stdlib type.
 /// Primitives use "primitive", alloc/std structs use their module + "struct".
 fn stdlib_type_info(bare_type: &str) -> (&'static str, &'static str) {
     match bare_type {
@@ -309,7 +309,7 @@ fn stdlib_type_info(bare_type: &str) -> (&'static str, &'static str) {
 
 /// Best-effort kind for third-party types. Defaults to "struct".
 /// Extend this if you start hitting enums or traits in practice.
-fn third_party_kind(_bare_type: &str) -> &'static str {
+const fn third_party_kind(_bare_type: &str) -> &'static str {
     "struct"
 }
 
@@ -319,11 +319,16 @@ fn cargo_crate_name(full_path: &str) -> Option<String> {
     let marker = "/registry/src/";
     let idx = full_path.find(marker)?;
     let after_registry = &full_path[idx + marker.len()..];
+
     // skip index hash dir (e.g. "index.crates.io-6f17d22bba15001f/")
-    let after_index = after_registry.splitn(2, '/').nth(1)?;
-    // next segment is "crate-name-1.2.3"
-    let crate_dir = after_index.splitn(2, '/').next()?;
+    let after_index = after_registry.split_once('/')?.1;
+
+    // 1. Get the next segment string slice by calling .next() on the split iterator
+    let crate_dir = after_index.split('/').next()?;
+
+    // 2. Now crate_dir is a valid &str (e.g., "crate-name-1.2.3")
     let name = strip_version_suffix(crate_dir);
+
     Some(name.replace('-', "_"))
 }
 
@@ -332,7 +337,7 @@ fn strip_version_suffix(crate_dir: &str) -> &str {
     let parts: Vec<&str> = crate_dir.rsplitn(10, '-').collect();
     let mut drop = 0;
     for part in &parts {
-        if part.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+        if part.chars().next().is_some_and(|c| c.is_ascii_digit()) {
             drop += 1;
         } else {
             break;
