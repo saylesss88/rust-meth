@@ -10,7 +10,8 @@ documentation = "https://docs.rs/rust-meth"
 readme = "README.md"
 keywords = ["rust-analyzer", "lsp", "methods", "cli", "introspection"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = [".github", "*.gif", "*.png"]
+exclude = [".github", "*.gif", "*.png", "tests/", "benches/"]
+resolver = "3"
 
 [[bin]]
 name = "rust-meth"
@@ -18,11 +19,13 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.102"
-dialoguer = {version = "0.12", features = [
-	"fuzzy-select",
-], default-features = false}
+dialoguer = { version = "0.12", features = ["fuzzy-select"], default-features = false }
 fuzzy-matcher = "0.3.7"
 serde_json = "1.0.149"
+
+[profile.dev]
+opt-level = 1
+debug = true
 
 [profile.release]
 opt-level = 3
@@ -32,31 +35,17 @@ strip = true
 panic = "abort"
 
 [lints.rust]
-unsafe_code = "warn"
-deprecated = "warn"
-unused_lifetimes = "warn"
-elided_lifetimes_in_paths = "warn"
+unsafe_code = "forbid"
 future_incompatible = {level = "warn", priority = -1}
 nonstandard_style = {level = "warn", priority = -1}
 rust_2018_idioms = {level = "warn", priority = -1}
-rust_2021_prelude_collisions = "warn"
-semicolon_in_expressions_from_macros = "warn"
-trivial_numeric_casts = "warn"
-unsafe_op_in_unsafe_fn = "warn"
-unused_extern_crates = "warn"
-unused_import_braces = "warn"
 
 [lints.rustdoc]
 all = "warn"
-missing_crate_level_docs = "warn"
 
 [lints.clippy]
 all = {level = "warn", priority = -1}
-correctness = {level = "warn", priority = -1}
-suspicious = {level = "warn", priority = -1}
-style = {level = "warn", priority = -1}
-complexity = {level = "warn", priority = -1}
-perf = {level = "warn", priority = -1}
+pedantic = {level = "warn", priority = -1}
 todo = "warn"
 dbg_macro = "warn"
 unwrap_used = "warn"
