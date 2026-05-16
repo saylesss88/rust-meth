@@ -144,3 +144,59 @@ impl LspTransport {
         json!({ "jsonrpc": "2.0", "method": "exit", "params": null })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: LSP Message Construction
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_initialize_message_structure() {
+        let msg = LspTransport::initialize(12345, "file:///test");
+
+        assert_eq!(msg["jsonrpc"], "2.0");
+        assert_eq!(msg["id"], 1);
+        assert_eq!(msg["method"], "initialize");
+        assert_eq!(msg["params"]["processId"], 12345);
+        assert_eq!(msg["params"]["rootUri"], "file:///test");
+    }
+
+    #[test]
+    fn test_completion_message_structure() {
+        let msg = LspTransport::completion(42, "file:///test.rs", 10, 5);
+
+        assert_eq!(msg["jsonrpc"], "2.0");
+        assert_eq!(msg["id"], 42);
+        assert_eq!(msg["method"], "textDocument/completion");
+        assert_eq!(msg["params"]["position"]["line"], 10);
+        assert_eq!(msg["params"]["position"]["character"], 5);
+        assert_eq!(msg["params"]["context"]["triggerKind"], 2);
+        assert_eq!(msg["params"]["context"]["triggerCharacter"], ".");
+    }
+
+    #[test]
+    fn test_definition_message_structure() {
+        let msg = LspTransport::definition(99, "file:///main.rs", 20, 15);
+
+        assert_eq!(msg["jsonrpc"], "2.0");
+        assert_eq!(msg["id"], 99);
+        assert_eq!(msg["method"], "textDocument/definition");
+        assert_eq!(msg["params"]["textDocument"]["uri"], "file:///main.rs");
+        assert_eq!(msg["params"]["position"]["line"], 20);
+        assert_eq!(msg["params"]["position"]["character"], 15);
+    }
+
+    #[test]
+    fn test_shutdown_and_exit() {
+        let shutdown = LspTransport::shutdown(100);
+        assert_eq!(shutdown["method"], "shutdown");
+        assert_eq!(shutdown["id"], 100);
+
+        let exit = LspTransport::exit();
+        assert_eq!(exit["method"], "exit");
+        assert!(exit["id"].is_null());
+    }
+}

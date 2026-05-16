@@ -42,3 +42,79 @@ pub fn filter_methods<'a>(
         },
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::Method;
+
+    fn make_method(name: &str) -> Method {
+        Method {
+            name: name.to_string(),
+            detail: None,
+            documentation: None,
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: filter_methods
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_filter_methods_no_filter() {
+        let methods = vec![make_method("len"), make_method("push"), make_method("pop")];
+
+        // No filter = return all
+        let result = filter_methods(&methods, None);
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_filter_methods_exact_match() {
+        let methods = vec![make_method("len"), make_method("push"), make_method("pop")];
+
+        let result = filter_methods(&methods, Some("len"));
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "len");
+    }
+
+    #[test]
+    fn test_filter_methods_fuzzy_match() {
+        let methods = vec![
+            make_method("wrapping_add"),
+            make_method("wrapping_sub"),
+            make_method("checked_add"),
+            make_method("saturating_add"),
+            make_method("overflowing_add"),
+        ];
+
+        // "wrap" should match all "wrapping_*" methods
+        let result = filter_methods(&methods, Some("wrap"));
+        assert!(result.len() >= 2);
+        assert!(result.iter().any(|m| m.name == "wrapping_add"));
+        assert!(result.iter().any(|m| m.name == "wrapping_sub"));
+    }
+
+    #[test]
+    fn test_filter_methods_fuzzy_ordering() {
+        let methods = vec![
+            make_method("checked_add"),
+            make_method("add"),
+            make_method("wrapping_add"),
+        ];
+
+        // "add" should rank "add" highest, then others
+        let result = filter_methods(&methods, Some("add"));
+        assert!(!result.is_empty());
+        // Exact match should be first
+        assert_eq!(result[0].name, "add");
+    }
+
+    #[test]
+    fn test_filter_methods_no_matches() {
+        let methods = vec![make_method("len"), make_method("push")];
+
+        let result = filter_methods(&methods, Some("xyz_nonexistent"));
+        assert!(result.is_empty());
+    }
+}

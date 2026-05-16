@@ -184,7 +184,14 @@ fn strip_version_suffix(crate_dir: &str) -> &str {
     let mut drop = 0;
 
     for part in &parts {
-        if part.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        // Check if this part looks like a version component:
+        // - Starts with a digit (1, 2, 3...)
+        // - Is a pre-release identifier (alpha, beta, rc)
+        // - Is just digits and dots (1.0, 2.1.3)
+        if part.chars().next().is_some_and(|c| c.is_ascii_digit())
+            || matches!(*part, "alpha" | "beta" | "rc" | "dev" | "pre")
+            || part.chars().all(|c| c.is_ascii_digit() || c == '.')
+        {
             drop += 1;
         } else {
             break;
@@ -197,4 +204,242 @@ fn strip_version_suffix(crate_dir: &str) -> &str {
 
     let total_len: usize = parts[drop..].iter().map(|s| s.len() + 1).sum();
     &crate_dir[..total_len.saturating_sub(1)]
+}
+// fn strip_version_suffix(crate_dir: &str) -> &str {
+//     let parts: Vec<&str> = crate_dir.rsplitn(10, '-').collect();
+//     let mut drop = 0;
+
+//     for part in &parts {
+//         if part.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+//             drop += 1;
+//         } else {
+//             break;
+//         }
+//     }
+
+//     if drop == 0 {
+//         return crate_dir;
+//     }
+
+//     let total_len: usize = parts[drop..].iter().map(|s| s.len() + 1).sum();
+//     &crate_dir[..total_len.saturating_sub(1)]
+// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: strip_version_suffix
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_strip_version_suffix_with_version() {
+        // Test typical semver patterns
+        assert_eq!(strip_version_suffix("serde-1.0.197"), "serde");
+        assert_eq!(strip_version_suffix("tokio-1.35.1"), "tokio");
+        assert_eq!(strip_version_suffix("clap-4.5.0"), "clap");
+    }
+
+    #[test]
+    fn test_strip_version_suffix_no_version() {
+        // When there's no version, return as-is
+        assert_eq!(strip_version_suffix("my-crate"), "my-crate");
+        assert_eq!(strip_version_suffix("serde"), "serde");
+    }
+
+    #[test]
+    fn test_strip_version_suffix_multi_part_name() {
+        // Crates with hyphens in the name
+        assert_eq!(strip_version_suffix("rust-analyzer-1.2.3"), "rust-analyzer");
+        assert_eq!(strip_version_suffix("serde-json-1.0.0"), "serde-json");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: rust-meth
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_cargo_crate_name_typical_path() {
+        let path = "/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.197/src/lib.rs";
+        assert_eq!(cargo_crate_name(path), Some("serde".to_string()));
+    }
+
+    #[test]
+    fn test_cargo_crate_name_with_hyphens() {
+        let path = "/home/user/.cargo/registry/src/github.com-1ecc6299db9ec823/serde-json-1.0.115/src/lib.rs";
+        assert_eq!(cargo_crate_name(path), Some("serde_json".to_string()));
+    }
+
+    #[test]
+    fn test_cargo_crate_name_invalid_path() {
+        // Not a cargo registry path
+        assert_eq!(cargo_crate_name("/home/user/src/main.rs"), None);
+        assert_eq!(cargo_crate_name(""), None);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: stdlib_type_info
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_stdlib_type_info_primitives() {
+        assert_eq!(stdlib_type_info("u8"), ("primitive", "primitive"));
+        assert_eq!(stdlib_type_info("i32"), ("primitive", "primitive"));
+        assert_eq!(stdlib_type_info("f64"), ("primitive", "primitive"));
+        assert_eq!(stdlib_type_info("bool"), ("primitive", "primitive"));
+        assert_eq!(stdlib_type_info("char"), ("primitive", "primitive"));
+        assert_eq!(stdlib_type_info("str"), ("primitive", "primitive"));
+    }
+
+    #[test]
+    fn test_stdlib_type_info_common_types() {
+        assert_eq!(stdlib_type_info("String"), ("string", "struct"));
+        assert_eq!(stdlib_type_info("Vec"), ("vec", "struct"));
+        assert_eq!(stdlib_type_info("Box"), ("boxed", "struct"));
+        assert_eq!(stdlib_type_info("Option"), ("option", "enum"));
+        assert_eq!(stdlib_type_info("Result"), ("result", "enum"));
+    }
+
+    #[test]
+    fn test_stdlib_type_info_collections() {
+        assert_eq!(
+            stdlib_type_info("HashMap"),
+            ("collections/hash_map", "struct")
+        );
+        assert_eq!(
+            stdlib_type_info("BTreeSet"),
+            ("collections/btree_set", "struct")
+        );
+    }
+
+    #[test]
+    fn test_stdlib_type_info_unknown() {
+        // Unknown types default to ("", "struct")
+        assert_eq!(stdlib_type_info("MyCustomType"), ("", "struct"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: is_stdlib_path
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_is_stdlib_path_core() {
+        assert!(is_stdlib_path(
+            "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/option.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_stdlib_path_std() {
+        assert!(is_stdlib_path(
+            "/rustup/toolchains/stable/lib/rustlib/src/rust/library/std/src/vec.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_stdlib_path_alloc() {
+        assert!(is_stdlib_path(
+            "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/string.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_stdlib_path_cargo_crate() {
+        assert!(!is_stdlib_path(
+            "/home/user/.cargo/registry/src/serde-1.0.0/src/lib.rs"
+        ));
+    }
+
+    #[test]
+    fn test_is_stdlib_path_user_code() {
+        assert!(!is_stdlib_path("/home/user/projects/my-app/src/main.rs"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT TESTS: build_doc_url
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_build_doc_url_stdlib_primitive() {
+        let def = crate::analyzer::Definition {
+            full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/num/mod.rs"
+                .to_string(),
+            path: "library/core/src/num/mod.rs".to_string(),
+            line: 0,
+        };
+
+        let url = build_doc_url("u8", "wrapping_add", &def);
+        assert_eq!(
+            url,
+            "https://doc.rust-lang.org/std/primitive.u8.html#method.wrapping_add"
+        );
+    }
+
+    #[test]
+    fn test_build_doc_url_stdlib_string() {
+        let def = crate::analyzer::Definition {
+            full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/string.rs"
+                .to_string(),
+            path: "library/alloc/src/string.rs".to_string(),
+            line: 0,
+        };
+
+        let url = build_doc_url("String", "len", &def);
+        assert_eq!(
+            url,
+            "https://doc.rust-lang.org/std/string/struct.String.html#method.len"
+        );
+    }
+
+    #[test]
+    fn test_build_doc_url_stdlib_option() {
+        let def = crate::analyzer::Definition {
+            full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/option.rs"
+                .to_string(),
+            path: "library/core/src/option.rs".to_string(),
+            line: 0,
+        };
+
+        let url = build_doc_url("Option", "unwrap", &def);
+        assert_eq!(
+            url,
+            "https://doc.rust-lang.org/std/option/enum.Option.html#method.unwrap"
+        );
+    }
+
+    #[test]
+    fn test_build_doc_url_third_party() {
+        let def = crate::analyzer::Definition {
+            full_path:
+                "/home/user/.cargo/registry/src/index.crates.io-xxx/serde-1.0.197/src/lib.rs"
+                    .to_string(),
+            path: "serde-1.0.197/src/lib.rs".to_string(),
+            line: 0,
+        };
+
+        let url = build_doc_url("Deserialize", "deserialize", &def);
+        assert_eq!(
+            url,
+            "https://docs.rs/serde/latest/serde/struct.Deserialize.html#method.deserialize"
+        );
+    }
+
+    #[test]
+    fn test_build_doc_url_generic_type() {
+        let def = crate::analyzer::Definition {
+            full_path:
+                "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs"
+                    .to_string(),
+            path: "library/alloc/src/vec/mod.rs".to_string(),
+            line: 0,
+        };
+
+        // Should strip generics: Vec<i32> -> Vec
+        let url = build_doc_url("Vec<i32>", "push", &def);
+        assert_eq!(
+            url,
+            "https://doc.rust-lang.org/std/vec/struct.Vec.html#method.push"
+        );
+    }
 }
