@@ -264,13 +264,6 @@ rustup component add rust-src
 export EDITOR=hx  # or nvim, vim, etc.
 ```
 
-**Why this is useful:** your editor's go-to-definition already does this for
-code you're actively editing, but `rust-meth --gd` works anywhere — no open
-project, no LSP session, no editor required. When you're exploring an unfamiliar
-type or scratching out code in a standalone file, you can jump straight to the
-stdlib implementation to understand exactly what a method does, how it handles
-edge cases, or what it delegates to.
-
 Pair it with `-i` to first discover the method you want, then open it:
 
 ```sh
