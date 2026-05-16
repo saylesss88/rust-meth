@@ -41,6 +41,11 @@ fn run() -> Result<(), String> {
                 if opts.open_def {
                     ui::open_in_editor(&def)?;
                 }
+
+                if opts.open_doc {
+                    let url = ui::build_doc_url(&opts.type_name, method_name, &def);
+                    ui::open_in_browser(&url)?;
+                }
             }
             None => {
                 return Err(format!(
