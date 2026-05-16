@@ -206,7 +206,8 @@ fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
 }
 
 pub struct Definition {
-    pub path: String,
+    pub path: String,      // short display path e.g. library/core/src/num/uint_macros.rs
+    pub full_path: String, // absolute path for opening in editor
     pub line: u32,
 }
 
@@ -293,17 +294,19 @@ fn parse_definition(response: Value) -> anyhow::Result<Option<Definition>> {
         return Ok(None);
     }
 
-    let path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
+    let full_path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
 
-    // Trim the toolchain path down to library/core/src/... for readability.
-    // Matches both rustup and system toolchain paths.
-    let short = if let Some(idx) = path.find("/library/") {
-        path[idx + 1..].to_string() // "library/core/src/num/uint_macros.rs"
-    } else if let Some(idx) = path.find("/src/") {
-        path[idx + 1..].to_string()
+    let path = if let Some(idx) = full_path.find("/library/") {
+        full_path[idx + 1..].to_string()
+    } else if let Some(idx) = full_path.find("/src/") {
+        full_path[idx + 1..].to_string()
     } else {
-        path
+        full_path.clone()
     };
 
-    Ok(Some(Definition { path: short, line }))
+    Ok(Some(Definition {
+        path,
+        full_path,
+        line,
+    }))
 }

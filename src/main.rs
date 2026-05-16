@@ -27,6 +27,8 @@ fn usage(bin: &str) {
     eprintln!("  {bin} u8 checked --doc      # filter + docs");
     eprintln!("Usage: {bin} <type> [filter] [-i] [--doc] [--gd <method>]");
     eprintln!("  {bin} String --gd len       # go to method definition");
+    eprintln!("  {bin} u8 --gd checked_add        # go to definition");
+    eprintln!("  {bin} u8 --gd checked_add --open  # open in $EDITOR");
 }
 
 /// Holds the parsed command-line configuration.
@@ -43,6 +45,8 @@ struct Opts {
     show_doc: bool,
     /// go-to-definition
     goto_def: Option<String>,
+    /// open definition in $EDITOR
+    open_def: bool,
 }
 
 fn main() {
@@ -68,12 +72,15 @@ fn run() -> Result<(), String> {
         {
             Some(def) => {
                 println!(
-                    "  {}::{}  {}:{}",
+                    "{}::{}  {}:{}",
                     opts.type_name,
                     method_name,
                     def.path,
                     def.line + 1
                 );
+                if opts.open_def {
+                    open_in_editor(&def)?;
+                }
             }
             None => {
                 return Err(format!(
@@ -85,6 +92,7 @@ fn run() -> Result<(), String> {
         }
         return Ok(());
     }
+
     let methods = analyzer::query_methods(&opts.type_name, &ra_path).map_err(|e| e.to_string())?;
 
     if opts.interactive {
@@ -153,6 +161,7 @@ fn parse_args() -> Result<Opts, String> {
     let mut interactive = false;
     let mut show_doc = false;
     let mut goto_def = None;
+    let mut open_def = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -164,6 +173,7 @@ fn parse_args() -> Result<Opts, String> {
                     .ok_or_else(|| "--gd requires a method name".to_string())?;
                 goto_def = Some(method);
             }
+            "--open" | "-o" => open_def = true,
             _ if arg.starts_with('-') => {
                 return Err(format!("unexpected flag '{arg}'"));
             }
@@ -188,6 +198,7 @@ fn parse_args() -> Result<Opts, String> {
         interactive,
         show_doc,
         goto_def,
+        open_def,
     })
 }
 
@@ -248,4 +259,29 @@ fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
             println!();
         }
     }
+}
+
+fn open_in_editor(def: &analyzer::Definition) -> Result<(), String> {
+    let editor = std::env::var("EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .map_err(|_| "$EDITOR and $VISUAL are not set".to_string())?;
+
+    let path = &def.full_path;
+    let line = def.line + 1;
+
+    let status = match editor.as_str() {
+        "hx" | "helix" => std::process::Command::new(&editor)
+            .arg(format!("{path}:{line}"))
+            .status(),
+        "code" | "code-insiders" => std::process::Command::new(&editor)
+            .args(["--goto", &format!("{path}:{line}")])
+            .status(),
+        _ => std::process::Command::new(&editor)
+            .arg(format!("+{line}"))
+            .arg(path)
+            .status(),
+    };
+
+    status.map_err(|e| format!("Failed to launch {editor}: {e}"))?;
+    Ok(())
 }
