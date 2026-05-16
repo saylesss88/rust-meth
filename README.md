@@ -6,10 +6,10 @@ source. Powered by `rust-analyzer`.
 
 Think of it as “method completion for any Rust type, anywhere in your terminal."
 
-- Currently supports types available in the standard toolchain (std + core +
-  alloc).
+> [!IMPORTANT]
+> - **Current Toolchain Support:** Standard toolchain (`std`, `core`, and `alloc`).
+> - **External Crates:** Third-party types (e.g. `serde_json::Value`) are not yet fully supported.
 
-- External crate types (e.g. `serde_json::Value`) are not yet supported.
 
 ## Highlights
 
@@ -19,6 +19,7 @@ Think of it as “method completion for any Rust type, anywhere in your terminal
 - Browse methods interactively with `-i`
 - Jump to the stdlib source of any method with `--gd`
 - Open that definition directly in your `$EDITOR` with `--open`
+- Open official documentation directly in your browser with `--open-doc`.
 
 ## Why it's useful
 
@@ -253,6 +254,8 @@ rustup component add rust-src
 export EDITOR=hx  # or nvim, vim, etc.
 ```
 
+**Discovery Workflow**
+
 Pair it with `-i` to discover first, then open:
 
 ```sh
@@ -283,9 +286,8 @@ $ rust-meth 'Vec<u8>' --gd push --open-doc     # doc.rust-lang.org/std/vec/struc
 $ rust-meth 'HashMap<String, u32>' --gd get --open-doc  # doc.rust-lang.org/std/collections/hash_map/struct.HashMap.html#method.get
 ```
 
-For third-party crate types, it falls back to the corresponding `docs.rs` page.
-
-You cannot combine `--open` and `--open-doc` — pick one.
+> [!NOTE]
+> `--open` and `--open-doc` are mutually exclusive options
 
 ---
 
