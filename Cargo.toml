@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition into standard library source code."
 license = "MIT OR Apache-2.0"
