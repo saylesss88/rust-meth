@@ -1,12 +1,15 @@
 # rust-meth
 
-Discover the methods available on any Rust type, with fuzzy filtering, inline
+Discover the methods available on any Rust type — with fuzzy filtering, inline
 docs, interactive selection, and go-to-definition into the standard library
 source. Powered by `rust-analyzer`.
 
-Works on any type your toolchain knows about: primitives, standard library
-types, and generic combinations of them. Support for third-party crate types
-(e.g. `serde_json::Value`) is not yet implemented.
+Think of it as “method completion for any Rust type, anywhere in your terminal."
+
+- Currently supports types available in the standard toolchain (std + core +
+  alloc).
+
+- External crate types (e.g. `serde_json::Value`) are not yet supported.
 
 ## Highlights
 
@@ -20,11 +23,11 @@ types, and generic combinations of them. Support for third-party crate types
 ## Why it's useful
 
 Rust already gives you editor-side go-to-definition, but that only works inside
-an open project. `rust-meth` works anywhere, no project, no editor, no LSP
+an open project. `rust-meth` works anywhere — no project, no editor, no LSP
 session. Stay in the terminal while you discover methods, read signatures, and
 jump into the stdlib source. Because it uses `rust-analyzer` under the hood, the
-output reflects your actual installed toolchain rather than a static list.
-Including nightly-only APIs, deprecated methods, and blanket trait impls.
+output reflects your actual installed toolchain: trait methods, blanket impls,
+deprecated methods, and nightly-only APIs. Not a static list.
 
 ## Table of Contents
 
@@ -38,23 +41,29 @@ Including nightly-only APIs, deprecated methods, and blanket trait impls.
 - [How it works](#how-it-works)
 - [License](#license)
 
+<a id="requirements"></a>
 ## Requirements
 
 - A Rust toolchain (stable or nightly)
-- `rust-analyzer` on your PATH:
+- `rust-analyzer` on your `PATH`:
 
 ```sh
 rustup component add rust-analyzer
 ```
 
-- Go-To-Definition also requires `rust-src`
+- `rust-src` (Rust standard library source code):
 
 ```sh
 rustup component add rust-src
 ```
 
+> [!NOTE]
+> While `rust-analyzer` will typically attempt to install the standard library
+> source automatically, installing it manually ensures it is present.
+
 ---
 
+<a id="installation"></a>
 ## Installation
 
 ```bash
@@ -63,7 +72,10 @@ cargo install rust-meth
 
 ---
 
+<a id="usage"></a>
 ## Usage
+
+First run may take a few seconds while `rust-analyzer` indexes the toolchain.
 
 ```sh
 $ rust-meth <type> [filter | -i]
@@ -74,7 +86,6 @@ $ rust-meth u8 wrapping
 Waiting for rust-analyzer to index… (this may take a moment on first run)
 (attempt 1: not ready, retrying…)
 rust-meth: methods on `u8` matching "wrapping"
-
   wrapping_add                const fn(self, u8) -> u8
   wrapping_add_signed         const fn(self, i8) -> u8
   wrapping_div                const fn(self, u8) -> u8
@@ -89,7 +100,6 @@ rust-meth: methods on `u8` matching "wrapping"
   wrapping_shr                const fn(self, u32) -> u8
   wrapping_sub                const fn(self, u8) -> u8
   wrapping_sub_signed         const fn(self, i8) -> u8
-
 14 method(s)
 ```
 
@@ -102,12 +112,10 @@ rust-meth f64
 rust-meth 'Vec<u8>'
 rust-meth 'Option<u8>'
 rust-meth 'HashMap<String, u32>'
+rust-meth 'Option<Result<Vec<u8>, std::io::Error>>'
 ```
 
-Because it uses rust-analyzer under the hood, the output reflects your actual
-installed toolchain. Including trait methods, blanket impls, deprecated methods,
-and nightly-only APIs. Not a static list.
-
+<a id="fuzzy-filter"></a>
 ## Fuzzy filter
 
 The filter argument uses fuzzy matching, so typos and partials work:
@@ -120,7 +128,6 @@ $ rust-meth u8 wrapng       # finds all wrapping_* methods
 $ rust-meth '&str' splt
 Waiting for rust-analyzer to index… (this may take a moment on first run)
 rust-meth: methods on `&str` matching "splt"
-
   split_terminator        fn(&self, P) -> SplitTerminator<'_, P>
   split                   fn(&self, P) -> Split<'_, P>
   split_ascii_whitespace  fn(&self) -> SplitAsciiWhitespace<'_>
@@ -137,7 +144,6 @@ rust-meth: methods on `&str` matching "splt"
   rsplit_once             fn(&self, P) -> Option<(&str, &str)>
   rsplitn                 fn(&self, usize, P) -> RSplitN<'_, P>
   escape_default          fn(&self) -> EscapeDefault<'_>
-
 16 method(s)
 ```
 
@@ -145,6 +151,7 @@ Results are sorted by match quality, best first.
 
 ---
 
+<a id="inline-documentation"></a>
 ## Inline documentation
 
 Pass `--doc` / `-d` to print the doc comment below each method signature:
@@ -152,21 +159,15 @@ Pass `--doc` / `-d` to print the doc comment below each method signature:
 ```sh
 $ rust-meth u8 strict_shr --doc
 rust-meth: methods on `u8` matching "strict_shr"
-
   strict_shr  const fn(self, u32) -> u8
-
     Strict shift right. Computes `self >> rhs`, panicking if `rhs` is
     larger than or equal to the number of bits in `self`.
-
     # Panics
-
     ## Overflow behavior
-
 1 method(s)
 ```
 
-Works best combined with a filter so you're not scrolling through docs for 200
-methods at once:
+Works best combined with a filter:
 
 ```sh
 $ rust-meth '&str' split_once --doc
@@ -174,10 +175,11 @@ $ rust-meth 'HashMap<String, u32>' entry --doc
 $ rust-meth u8 checked --doc
 ```
 
-Also works in interactive mode. Select a method and the doc comment prints below
-the signature. Examples shown in next section.
+Also works in interactive mode — select a method and its doc comment prints
+below the signature.
 
-### Interactive picker
+<a id="interactive-picker"></a>
+## Interactive picker
 
 Pass `-i` / `--interactive` instead of a filter to get a live fuzzy selector:
 
@@ -192,24 +194,10 @@ $ rust-meth 'HashMap<String, u32>' -i
   capacity
   clear
   clone
-  clone_from
-  clone_into
-  contains_key
-  drain
-  entry
-  eq
-  extend
-  extend_one
-  extend_reserve
-  extract_if
-  get
-  get_disjoint_mut
-  get_disjoint_unchecked_mut
-  # ---snip---
+  ...
 ```
 
-Type to narrow the list, arrow keys to move, Enter to select: prints the method
-name and full signature. Esc to quit without selecting.
+Type to narrow the list, arrow keys to move, Enter to select. Esc to quit.
 
 Combine with `--doc` to also show the doc comment for the selected method:
 
@@ -217,22 +205,23 @@ Combine with `--doc` to also show the doc comment for the selected method:
 $ rust-meth u8 -i --doc
 ```
 
-Example: Output when I type `bitor`:
+Example output when typing `bitor`:
 
-````bash
+```markdown
 ✔ Methods on `u8` · bitor
   bitor  fn(self, Rhs) -> <Self as BitOr<Rhs>>::Output
 
     Performs the `|` operation.
-
+    
     # Examples
-
+    
     ```rust
     assert_eq!(true | false, true);
-````
+```
 
 ---
 
+<a id="go-to-definition"></a>
 ## Go to definition
 
 Pass `--gd <method>` to find where a method is defined in the standard library
@@ -241,7 +230,6 @@ source:
 ```sh
 $ rust-meth u8 --gd checked_add
 u8::checked_add  library/core/src/num/uint_macros.rs:902
-
 $ rust-meth '&str' --gd split_once
 &str::split_once  library/core/src/str/mod.rs:2241
 ```
@@ -264,7 +252,7 @@ rustup component add rust-src
 export EDITOR=hx  # or nvim, vim, etc.
 ```
 
-Pair it with `-i` to first discover the method you want, then open it:
+Pair it with `-i` to discover first, then open:
 
 ```sh
 $ rust-meth u8 -i               # pick a method interactively
@@ -273,10 +261,11 @@ $ rust-meth u8 --gd isqrt --open  # open it
 u8::isqrt  library/core/src/num/uint_macros.rs:3684
 ```
 
+<a id="how-it-works"></a>
 ## How it works
 
 <details>
-<summary> How it works </summary>
+<summary>Implementation details</summary>
 
 For each query, `rust-meth`:
 
@@ -292,15 +281,9 @@ For each query, `rust-meth`:
 ```
 
 2. Spawns `rust-analyzer` as a subprocess
-
-3. Performs the LSP handshake (`initialize` → `initialized` →
-   `textDocument/didOpen`)
-
-4. Waits for RA to finish indexing, then sends `textDocument/completion` at the
-   dot
-
+3. Performs the LSP handshake (`initialize` → `initialized` → `textDocument/didOpen`)
+4. Waits for RA to finish indexing, then sends `textDocument/completion` at the dot
 5. Filters the response for `CompletionItemKind::Method` items
-
 6. Prints names and signatures, then shuts RA down
 
 The temporary project is cleaned up automatically on exit.
@@ -309,6 +292,8 @@ The temporary project is cleaned up automatically on exit.
 
 ---
 
-### License
+<a id="license"></a>
+## License
 
-- [MIT OR Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
+[MIT OR Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
+
