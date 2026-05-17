@@ -4,11 +4,11 @@ Discover the methods available on any Rust type — with fuzzy filtering, inline
 docs, interactive selection, and go-to-definition into the standard library
 source. Powered by `rust-analyzer`.
 
-Think of it as “method completion for any Rust type, anywhere in your terminal."
+Think of it as "method completion for any Rust type, anywhere in your terminal."
 
 > [!IMPORTANT]
-> - **Current Toolchain Support:** Standard toolchain (`std`, `core`, and `alloc`).
-> - **External Crates:** Third-party types (e.g. `serde_json::Value`) are not yet fully supported.
+> - **Standard Toolchain:** Fully supported (`std`, `core`, and `alloc`).
+> - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).
 
 
 ## Highlights
@@ -19,7 +19,8 @@ Think of it as “method completion for any Rust type, anywhere in your terminal
 - Browse methods interactively with `-i`
 - Jump to the stdlib source of any method with `--gd`
 - Open that definition directly in your `$EDITOR` with `--open`
-- Open official documentation directly in your browser with `--open-doc`.
+- Open official documentation directly in your browser with `--open-doc`
+- Query 3rd party crate types with `--deps`
 
 ## Why it's useful
 
@@ -40,6 +41,7 @@ deprecated methods, and nightly-only APIs. Not a static list.
   - [Interactive picker](#interactive-picker)
   - [Go-to-definition](#go-to-definition)
   - [Open in browser](#open-in-browser)
+  - [3rd party crates](#3rd-party-crates)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -288,6 +290,65 @@ $ rust-meth 'HashMap<String, u32>' --gd get --open-doc  # doc.rust-lang.org/std/
 
 > [!NOTE]
 > `--open` and `--open-doc` are mutually exclusive options
+>
+> **Limitation:** `--gd` currently only works for standard library types. Go-to-definition
+> for 3rd party crate methods is not yet supported.
+
+---
+
+<a id="3rd-party-crates"></a>
+## 3rd party crates
+
+Use the `--deps` flag to query methods on types from external crates:
+
+```sh
+$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
+✓ Found 37 methods (5.7s)
+
+rust-meth: methods on `serde_json::Value`
+
+  as_array          fn(&self) -> Option<&Vec<Value, Global>>
+  as_bool           fn(&self) -> Option<bool>
+  as_f64            fn(&self) -> Option<f64>
+  as_i64            fn(&self) -> Option<i64>
+  as_null           fn(&self) -> Option<()>
+  as_object         fn(&self) -> Option<&Map<String, Value>>
+  as_str            fn(&self) -> Option<&str>
+  as_u64            fn(&self) -> Option<u64>
+  ...
+37 method(s)
+```
+
+**Works with all features:**
+
+```sh
+# Interactive mode
+$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"' -i
+
+# Fuzzy filter
+$ rust-meth 'serde_json::Value' as_bool --deps 'serde_json = "1.0"'
+
+# Show documentation
+$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"' --doc
+```
+
+**Multiple dependencies:**
+
+```sh
+$ rust-meth 'reqwest::Client' --deps 'reqwest = "0.11"
+tokio = { version = "1", features = ["full"] }'
+```
+
+**Complex dependency specifications:**
+
+```sh
+$ rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "1", features = ["net"] }'
+```
+
+> [!NOTE]
+> The `--deps` flag accepts raw TOML syntax exactly as it would appear in `Cargo.toml`.
+> First-time queries with external crates may take longer (5-10 seconds) as `rust-analyzer`
+> downloads and indexes the dependencies. Subsequent queries will be faster.
 
 ---
 
@@ -310,11 +371,12 @@ For each query, `rust-meth`:
    }
 ```
 
-2. Spawns `rust-analyzer` as a subprocess
-3. Performs the LSP handshake (`initialize` → `initialized` → `textDocument/didOpen`)
-4. Waits for RA to finish indexing, then sends `textDocument/completion` at the dot
-5. Filters the response for `CompletionItemKind::Method` items
-6. Prints names and signatures, then shuts RA down
+2. If `--deps` is provided, adds those dependencies to the probe's `Cargo.toml`
+3. Spawns `rust-analyzer` as a subprocess
+4. Performs the LSP handshake (`initialize` → `initialized` → `textDocument/didOpen`)
+5. Waits for RA to finish indexing, then sends `textDocument/completion` at the dot
+6. Filters the response for `CompletionItemKind::Method` items
+7. Prints names and signatures, then shuts RA down
 
 The temporary project is cleaned up automatically on exit.
 
@@ -326,4 +388,3 @@ The temporary project is cleaned up automatically on exit.
 ## License
 
 [MIT OR Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
-
