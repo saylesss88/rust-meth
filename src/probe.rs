@@ -75,16 +75,11 @@ impl Probe {
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
+        let cargo_toml = deps.map_or_else(|| "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(), |d| format!(
+                 "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
+             ));
+
         // Build Cargo.toml with optional dependencies
-        let cargo_toml = match deps {
-            Some(d) => format!(
-                "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{}\n",
-                d
-            ),
-            None => {
-                "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string()
-            }
-        };
 
         fs::write(dir.join("Cargo.toml"), cargo_toml)?;
 
@@ -99,18 +94,9 @@ impl Probe {
             u32::try_from(PREAMBLE.lines().count()).expect("Preamble is too long to fit in u32");
 
         // Generate source based on whether we're doing completion or definition
-        let source = match method_name {
-            Some(method) => {
-                // For definition: _x.METHOD_NAME()
-                format!(
-                    "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method}();\n}}\n"
-                )
-            }
-            None => {
-                // For completion: _x.
-                format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
-            }
-        };
+        let source = method_name.map_or_else(|| format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n"), |method| format!(
+                      "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method}();\n}}\n"
+                 ));
 
         let src_path = src_dir.join("main.rs");
         fs::write(&src_path, &source)?;
