@@ -9,6 +9,7 @@ push:
     cargo fmt -- --check
     cargo clippy -- -D warnings
     cargo test
+    jj bookmark set main -r @-
     jj git push
 [group('cargo')]
 clip:
