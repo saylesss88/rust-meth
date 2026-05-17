@@ -4,11 +4,12 @@
 
 #![deny(missing_docs)]
 
-mod analyzer;
-mod lsp;
-mod probe;
+// mod analyzer;
+// mod lsp;
+// mod probe;
 mod ui;
 
+use rust_meth::analyzer;
 use std::process;
 use std::time::Instant;
 

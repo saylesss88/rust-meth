@@ -7,12 +7,21 @@ use std::process::{Child, ChildStdin, ChildStdout};
 
 use serde_json::{Value, json};
 
+/// A synchronous transport layer for communicating with a Language Server Protocol (LSP) server.
 pub struct LspTransport {
+    /// The standard input stream used to send messages to the LSP server child process.
     pub stdin: ChildStdin,
     reader: BufReader<ChildStdout>,
 }
 
 impl LspTransport {
+    /// Creates a new `LspTransport` by taking ownership of the `stdin` and `stdout`
+    /// streams from the provided child process.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child process does not have a captured `stdin` or `stdout` stream
+    /// (e.g., if they weren't configured with `Stdio::piped()`).
     pub fn new(child: &mut Child) -> Self {
         let stdin = child.stdin.take().expect("stdin");
         let stdout = child.stdout.take().expect("stdout");
@@ -23,6 +32,10 @@ impl LspTransport {
     }
 
     /// Send a JSON-RPC message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if writing to or flushing the underlying `stdin` stream fails.
     pub fn send(&mut self, msg: &Value) -> std::io::Result<()> {
         let body = msg.to_string();
         write!(self.stdin, "Content-Length: {}\r\n\r\n{}", body.len(), body)?;
@@ -30,6 +43,14 @@ impl LspTransport {
     }
 
     /// Read the next LSP message (blocks until one arrives).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - An I/O error occurs while reading from the stdout stream.
+    /// - The stream ends before a valid `Content-Length` header is parsed.
+    /// - The header value cannot be parsed into a valid size.
+    /// - The message body cannot be parsed as valid JSON.
     pub fn recv(&mut self) -> anyhow::Result<Value> {
         // Read headers until blank line.
         let mut content_length: Option<usize> = None;
@@ -51,8 +72,13 @@ impl LspTransport {
         Ok(serde_json::from_slice(&body)?)
     }
 
-    /// Read messages until `predicate` returns Some(T), discarding everything else.
-    /// Returns an error if more than `limit` messages are consumed without a match.
+    /// Read messages until `predicate` returns `Some(T)`, discarding everything else.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The underlying [`Self::recv`] call fails.
+    /// - The `limit` number of messages is exhausted without the `predicate` returning `Some(T)`.
     pub fn recv_until<T>(
         &mut self,
         limit: usize,
@@ -69,6 +95,8 @@ impl LspTransport {
 
     // ── Convenience constructors for common messages ─────────────────────────
 
+    /// Constructs an LSP `initialize` request message.
+    #[must_use]
     pub fn initialize(process_id: u32, root_uri: &str) -> Value {
         json!({
             "jsonrpc": "2.0",
@@ -92,10 +120,14 @@ impl LspTransport {
         })
     }
 
+    /// Constructs an LSP `initialized` notification message.
+    #[must_use]
     pub fn initialized() -> Value {
         json!({ "jsonrpc": "2.0", "method": "initialized", "params": {} })
     }
 
+    /// Constructs an LSP `textDocument/didOpen` notification message.
+    #[must_use]
     pub fn did_open(uri: &str, text: &str) -> Value {
         json!({
             "jsonrpc": "2.0",
@@ -111,6 +143,8 @@ impl LspTransport {
         })
     }
 
+    /// Constructs an LSP `textDocument/definition` request message.
+    #[must_use]
     pub fn definition(id: u64, uri: &str, line: u32, character: u32) -> Value {
         json!({
             "jsonrpc": "2.0",
@@ -123,6 +157,8 @@ impl LspTransport {
         })
     }
 
+    /// Constructs an LSP `textDocument/completion` request message.
+    #[must_use]
     pub fn completion(id: u64, uri: &str, line: u32, character: u32) -> Value {
         json!({
             "jsonrpc": "2.0",
@@ -136,10 +172,14 @@ impl LspTransport {
         })
     }
 
+    /// Constructs an LSP `shutdown` request message.
+    #[must_use]
     pub fn shutdown(id: u64) -> Value {
         json!({ "jsonrpc": "2.0", "id": id, "method": "shutdown", "params": null })
     }
 
+    /// Constructs an LSP `exit` notification message.
+    #[must_use]
     pub fn exit() -> Value {
         json!({ "jsonrpc": "2.0", "method": "exit", "params": null })
     }

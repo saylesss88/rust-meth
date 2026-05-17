@@ -29,6 +29,11 @@ pub struct Probe {
 
 impl Probe {
     /// Creates a new probe project without dependencies (for stdlib types).
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if creating the underlying probe project directory
+    /// or writing its files fails.
     #[allow(dead_code)]
     pub fn new(type_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, None, None)
@@ -39,18 +44,33 @@ impl Probe {
     /// # Arguments
     /// * `type_name` - The Rust type to query (e.g., "Vec<u8>", "`serde_json::Value`")
     /// * `deps` - Optional TOML dependencies section (e.g., "`serde_json` = \"1.0\"")
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if generating the probe files or writing the dependency
+    /// configuration fails.
     pub fn new_with_deps(type_name: &str, deps: Option<&str>) -> std::io::Result<Self> {
         Self::create_probe(type_name, None, deps)
     }
 
     /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
     /// The cursor position points at the start of the method name.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if the workspace initialization or file creation fails
+    /// on disk.
     #[allow(dead_code)]
     pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, Some(method_name), None)
     }
 
     /// Creates a probe file for go-to-definition with custom dependencies.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if the underlying project boilerplate, file buffers,
+    /// or custom dependency sections cannot be written.
     pub fn for_definition_with_deps(
         type_name: &str,
         method_name: &str,
@@ -113,14 +133,17 @@ impl Probe {
         })
     }
 
+    #[must_use]
     pub fn src_uri(&self) -> String {
         path_to_uri(&self.src_path)
     }
 
+    #[must_use]
     pub fn root_uri(&self) -> String {
         path_to_uri(&self.dir)
     }
 
+    #[must_use]
     pub fn source(&self) -> String {
         fs::read_to_string(&self.src_path).unwrap_or_default()
     }

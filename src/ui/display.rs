@@ -1,4 +1,4 @@
-use crate::analyzer;
+use rust_meth::analyzer;
 
 /// Formats and prints a single method to stdout.
 pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {

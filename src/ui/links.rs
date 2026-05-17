@@ -4,7 +4,7 @@
 //! them in the system browser or preferred editor.
 use std::process::Command;
 
-use crate::analyzer;
+use rust_meth::analyzer;
 
 /// Opens a definition in the user's preferred editor (`$EDITOR`, falling back to `$VISUAL`).
 ///

@@ -224,48 +224,14 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
     })
     .or(Ok(()))
 }
-// fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
-//     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
-//     lsp.recv_until(200, |msg| {
-//         let method = msg["method"].as_str().unwrap_or("");
-//         if debug {
-//             eprintln!("[debug] {method}");
-//             if method == "$/progress" {
-//                 eprintln!(
-//                     "        token={} kind={}",
-//                     msg["params"]["token"], msg["params"]["value"]["kind"]
-//                 );
-//             }
-//         }
-//         match method {
-//             "$/progress" => {
-//                 if msg["params"]["value"]["kind"] == "end" {
-//                     Some(())
-//                 } else {
-//                     None
-//                 }
-//             }
-//             "experimental/serverStatus" => {
-//                 if msg["params"]["quiescent"] == true {
-//                     Some(())
-//                 } else {
-//                     None
-//                 }
-//             }
-//             "workspace/diagnostic/refresh" | "textDocument/publishDiagnostics" => Some(()),
-//             _ => None,
-//         }
-//     })
-//     .or(Ok(()))
-// }
 
 /// Filters, sanitizes, and deduplicates the raw JSON arrays returned by the LSP completion query.
 ///
-/// # Panics
+/// # Errors
 ///
-/// This function does not panic on missing `label` sub-keys, substituting them gracefully
-/// with blank tokens.
-fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
+/// Returns an error if the provided JSON response does not conform to the expected LSP
+/// completion shape (missing both a top-level `result` array and an `items` sub-array).
+pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
     let items = match &response["result"] {
         Value::Array(arr) => arr.clone(),
         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),
@@ -297,6 +263,7 @@ fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
 }
 
 /// Contains source definition location mappings returned by an LSP `textDocument/definition` call.
+#[must_use]
 pub struct Definition {
     /// A shortened path string tailored for display terminals (e.g., `"library/core/src/num/uint_macros.rs"`).
     pub path: String,
@@ -393,7 +360,8 @@ pub fn query_definition(
 /// # Panics
 ///
 /// Panics if the line position value returned by the LSP protocol fails to map cleanly into a `u32`.
-fn parse_definition(response: &Value) -> Option<Definition> {
+#[must_use]
+pub fn parse_definition(response: &Value) -> Option<Definition> {
     let location = match &response["result"] {
         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
         single if single.is_object() => single.clone(),
