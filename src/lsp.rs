@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 /// A synchronous transport layer for communicating with a Language Server Protocol (LSP) server.
 pub struct LspTransport {
     /// The standard input stream used to send messages to the LSP server child process.
-    pub stdin: ChildStdin,
+    stdin: ChildStdin,
     reader: BufReader<ChildStdout>,
 }
 

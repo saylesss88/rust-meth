@@ -1,5 +1,4 @@
-use std::process;
-
+use std::fmt::Write;
 /// Holds the parsed command-line configuration.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Opts {
@@ -14,33 +13,62 @@ pub struct Opts {
     pub deps: Option<String>,
 }
 
-/// Prints the CLI help menu with usage patterns and examples.
-pub fn usage(bin: &str) {
-    eprintln!("Usage: {bin} <type> [filter] [-i] [--doc] [--gd <method>] [--open] [--open-doc]");
-    eprintln!();
-    eprintln!("Examples:");
-    eprintln!("  {bin} u8");
-    eprintln!("  {bin} String");
-    eprintln!("  {bin} \"Vec<i32>\"");
-    eprintln!("  {bin} \"HashMap<String,u32>\"");
-    eprintln!("  {bin} u8 wrapping                 # fuzzy filter");
-    eprintln!("  {bin} u8 -i                       # interactive picker");
-    eprintln!("  {bin} u8 --doc                    # show doc comments inline");
-    eprintln!("  {bin} u8 checked --doc            # filter + docs");
-    eprintln!("  {bin} String --gd len             # print definition location");
-    eprintln!("  {bin} u8 --gd checked_add         # go to definition");
-    eprintln!("  {bin} u8 --gd checked_add --open  # open in $EDITOR");
-    eprintln!("  {bin} u8 --gd checked_add --open-doc  # open in browser");
-    eprintln!();
-    eprintln!("3rd party crates:");
-    eprintln!("  {bin} 'serde_json::Value' --deps 'serde_json = \"1.0\"'");
-    eprintln!(
-        "  {bin} 'tokio::net::TcpStream' --deps 'tokio = {{ version = \"1.0\", features = [\"net\"] }}'"
-    );
+/// The result of parsing command-line arguments.
+pub enum ParseResult {
+    Opts(Opts),
+    Help(String),
+    Version(String),
 }
 
-/// Hand-rolls argument parsing to support positional arguments and flags.
-pub fn parse_args() -> Result<Opts, String> {
+/// Builds the CLI help text.
+pub fn usage(bin: &str) -> String {
+    let mut s = String::new();
+    let _ = writeln!(
+        s,
+        "Usage: {bin} <type> [filter] [-i] [--doc] [--gd <method>] [--open] [--open-doc]\n"
+    );
+    s.push_str("\nExamples:\n");
+    let _ = writeln!(s, "  {bin} u8\n");
+    let _ = writeln!(s, "  {bin} String\n");
+    let _ = writeln!(s, "  {bin} \"Vec<i32>\"\n");
+    let _ = writeln!(s, "  {bin} \"HashMap<String,u32>\"\n");
+    let _ = writeln!(s, "  {bin} u8 wrapping                 # fuzzy filter\n");
+    let _ = writeln!(
+        s,
+        "  {bin} u8 -i                       # interactive picker\n"
+    );
+    let _ = writeln!(
+        s,
+        "  {bin} u8 --doc                    # show doc comments inline\n"
+    );
+    let _ = writeln!(s, "  {bin} u8 checked --doc            # filter + docs\n");
+    let _ = writeln!(
+        s,
+        "  {bin} String --gd len             # print definition location\n"
+    );
+    let _ = writeln!(
+        s,
+        "  {bin} u8 --gd checked_add         # go to definition\n"
+    );
+    let _ = writeln!(s, "  {bin} u8 --gd checked_add --open  # open in $EDITOR\n");
+    let _ = writeln!(
+        s,
+        "  {bin} u8 --gd checked_add --open-doc  # open in browser\n"
+    );
+    s.push_str("\n3rd party crates:\n");
+    let _ = writeln!(
+        s,
+        "  {bin} 'serde_json::Value' --deps 'serde_json = \"1.0\"'\n"
+    );
+    let _ = writeln!(
+        s,
+        "  {bin} 'tokio::net::TcpStream' --deps 'tokio = {{ version = \"1.0\", features = [\"net\"] }}'\n"
+    );
+    s
+}
+
+/// Parses command-line arguments, returning a [`ParseResult`] instead of calling `process::exit`.
+pub fn parse_args() -> Result<ParseResult, String> {
     let bin = std::env::current_exe()
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -49,23 +77,22 @@ pub fn parse_args() -> Result<Opts, String> {
     let mut args = std::env::args().skip(1);
 
     let Some(first) = args.next() else {
-        usage(&bin);
-        process::exit(0);
+        return Ok(ParseResult::Help(usage(&bin)));
     };
 
     if matches!(first.as_str(), "--help" | "-h") {
-        usage(&bin);
-        process::exit(0);
+        return Ok(ParseResult::Help(usage(&bin)));
     }
 
     if matches!(first.as_str(), "--version" | "-V") {
-        println!("{} {}", bin, env!("CARGO_PKG_VERSION"));
-        process::exit(0);
+        return Ok(ParseResult::Version(format!(
+            "{bin} {}",
+            env!("CARGO_PKG_VERSION")
+        )));
     }
 
     if first.starts_with('-') {
-        usage(&bin);
-        return Err(format!("unexpected argument '{first}'"));
+        return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));
     }
 
     let type_name = first;
@@ -124,7 +151,7 @@ pub fn parse_args() -> Result<Opts, String> {
         return Err("choose only one of --open or --open-doc".to_string());
     }
 
-    Ok(Opts {
+    Ok(ParseResult::Opts(Opts {
         bin,
         type_name,
         filter,
@@ -134,5 +161,5 @@ pub fn parse_args() -> Result<Opts, String> {
         open_def,
         open_doc,
         deps,
-    })
+    }))
 }

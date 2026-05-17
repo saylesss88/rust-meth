@@ -74,6 +74,7 @@ pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     Ok(RA_PATH_CACHE.get_or_init(|| path).clone())
 }
 
+#[cfg(unix)]
 fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
     let out = Command::new("which").arg(name).output()?;
     anyhow::ensure!(out.status.success(), "not found");
@@ -123,7 +124,7 @@ pub fn query_methods(
     lsp.send(&LspTransport::initialized())?;
 
     // ── 3. didOpen ───────────────────────────────────────────────────────────
-    lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
+    lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
     wait_for_indexing(&mut lsp)?;
@@ -313,7 +314,7 @@ pub fn query_definition(
 
     // Send both notifications back-to-back (no wait needed)
     lsp.send(&LspTransport::initialized())?;
-    lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
+    lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // Now wait for indexing
     wait_for_indexing(&mut lsp)?;

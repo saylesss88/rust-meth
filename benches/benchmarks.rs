@@ -1,9 +1,8 @@
 #![allow(clippy::unwrap_used)]
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use rust_meth::{
+    LspTransport, Probe,
     analyzer::{parse_definition, parse_methods},
-    lsp::LspTransport,
-    probe::Probe,
 };
 use serde_json::{Value, json};
 

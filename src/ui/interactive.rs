@@ -46,7 +46,7 @@ pub fn filter_methods<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::analyzer::Method;
+    use rust_meth::analyzer::Method;
 
     fn make_method(name: &str) -> Method {
         Method {

@@ -2,11 +2,6 @@
 //! It leverages `rust-analyzer` via the Language Server Protocol (LSP) to provide
 //! accurate, context-aware method resolution.
 
-#![deny(missing_docs)]
-
-// mod analyzer;
-// mod lsp;
-// mod probe;
 mod ui;
 
 use rust_meth::analyzer;
@@ -25,15 +20,23 @@ fn main() {
 /// 2. Queries for methods.
 /// 3. Routes to interactive or batch output modes.
 fn run() -> Result<(), String> {
-    let opts = ui::parse_args()?;
+    let opts = match ui::parse_args()? {
+        ui::ParseResult::Opts(opts) => opts,
+        ui::ParseResult::Help(text) => {
+            eprint!("{text}");
+            process::exit(0);
+        }
+        ui::ParseResult::Version(text) => {
+            println!("{text}");
+            process::exit(0);
+        }
+    };
 
     let ra_path = analyzer::find_rust_analyzer().map_err(|e| e.to_string())?;
 
-    // Handle --gd before querying methods. Avoids spinning up RA twice.
     if let Some(method_name) = &opts.goto_def {
         let spinner = ui::definition(&opts.type_name, method_name);
 
-        // match analyzer::query_definition(&opts.type_name, method_name, &ra_path) {
         match analyzer::query_definition(
             &opts.type_name,
             method_name,
@@ -42,7 +45,6 @@ fn run() -> Result<(), String> {
         ) {
             Ok(Some(def)) => {
                 spinner.finish_with_message("✓ Found definition");
-
                 println!(
                     "{}::{}  {}:{}",
                     opts.type_name,
@@ -50,11 +52,9 @@ fn run() -> Result<(), String> {
                     def.path,
                     def.line + 1
                 );
-
                 if opts.open_def {
                     ui::open_in_editor(&def)?;
                 }
-
                 if opts.open_doc {
                     let url = ui::build_doc_url(&opts.type_name, method_name, &def);
                     ui::open_in_browser(&url)?;
@@ -62,7 +62,6 @@ fn run() -> Result<(), String> {
             }
             Ok(None) => {
                 spinner.finish_with_message("✗ Not found");
-
                 return Err(format!(
                     "No definition found for `{}::{}` — is rust-src installed?\n\
                      Run: rustup component add rust-src",

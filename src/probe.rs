@@ -42,7 +42,7 @@ impl Probe {
     /// Creates a new probe project with optional dependencies (for 3rd party crates).
     ///
     /// # Arguments
-    /// * `type_name` - The Rust type to query (e.g., "Vec<u8>", "`serde_json::Value`")
+    /// * `type_name` - The Rust type to query (e.g., "`Vec<u8>`", "`serde_json::Value`")
     /// * `deps` - Optional TOML dependencies section (e.g., "`serde_json` = \"1.0\"")
     ///
     /// # Errors
@@ -143,9 +143,17 @@ impl Probe {
         path_to_uri(&self.dir)
     }
 
-    #[must_use]
-    pub fn source(&self) -> String {
-        fs::read_to_string(&self.src_path).unwrap_or_default()
+    /// Reads and returns the contents of the source file as a string.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an `Err` if the file cannot be read.
+    /// Common reasons include:
+    /// * The file at `src_path` does not exist.
+    /// * The user lacks permissions to read the file.
+    /// * The file contents are not valid UTF-8.
+    pub fn source(&self) -> std::io::Result<String> {
+        fs::read_to_string(&self.src_path)
     }
 }
 
