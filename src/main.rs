@@ -32,7 +32,13 @@ fn run() -> Result<(), String> {
     if let Some(method_name) = &opts.goto_def {
         let spinner = ui::definition(&opts.type_name, method_name);
 
-        match analyzer::query_definition(&opts.type_name, method_name, &ra_path) {
+        // match analyzer::query_definition(&opts.type_name, method_name, &ra_path) {
+        match analyzer::query_definition(
+            &opts.type_name,
+            method_name,
+            &ra_path,
+            opts.deps.as_deref(),
+        ) {
             Ok(Some(def)) => {
                 spinner.finish_with_message("✓ Found definition");
 
@@ -73,7 +79,7 @@ fn run() -> Result<(), String> {
     let start = Instant::now();
     let spinner = ui::indexing(&opts.type_name);
 
-    let methods = match analyzer::query_methods(&opts.type_name, &ra_path) {
+    let methods = match analyzer::query_methods(&opts.type_name, &ra_path, opts.deps.as_deref()) {
         Ok(methods) => {
             let elapsed = start.elapsed();
             spinner.finish_with_message(format!(
@@ -88,16 +94,6 @@ fn run() -> Result<(), String> {
             return Err(e.to_string());
         }
     };
-    // let methods = match analyzer::query_methods(&opts.type_name, &ra_path) {
-    //     Ok(methods) => {
-    //         spinner.finish_with_message(format!("✓ Found {} methods", methods.len()));
-    //         methods
-    //     }
-    //     Err(e) => {
-    //         spinner.finish_with_message("✗ Query failed");
-    //         return Err(e.to_string());
-    //     }
-    // };
 
     if opts.interactive {
         return ui::run_interactive(&opts, &methods);

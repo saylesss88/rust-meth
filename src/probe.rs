@@ -29,6 +29,7 @@ pub struct Probe {
 
 impl Probe {
     /// Creates a new probe project without dependencies (for stdlib types).
+    #[allow(dead_code)]
     pub fn new(type_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, None, None)
     }
@@ -36,14 +37,15 @@ impl Probe {
     /// Creates a new probe project with optional dependencies (for 3rd party crates).
     ///
     /// # Arguments
-    /// * `type_name` - The Rust type to query (e.g., "Vec<u8>", "serde_json::Value")
-    /// * `deps` - Optional TOML dependencies section (e.g., "serde_json = \"1.0\"")
+    /// * `type_name` - The Rust type to query (e.g., "Vec<u8>", "`serde_json::Value`")
+    /// * `deps` - Optional TOML dependencies section (e.g., "`serde_json` = \"1.0\"")
     pub fn new_with_deps(type_name: &str, deps: Option<&str>) -> std::io::Result<Self> {
         Self::create_probe(type_name, None, deps)
     }
 
     /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
     /// The cursor position points at the start of the method name.
+    #[allow(dead_code)]
     pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, Some(method_name), None)
     }

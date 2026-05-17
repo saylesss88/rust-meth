@@ -96,9 +96,14 @@ fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
 /// * Spawning the `rust-analyzer` subprocess fails.
 /// * The LSP server communication channels break.
 /// * The server returns an unexpectedly structured or malformed JSON payload.
-pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Result<Vec<Method>> {
-    let probe = Probe::new(type_name)?;
-
+// pub fn query_methods(type_name: &str, ra_path: &std::path::Path) -> anyhow::Result<Vec<Method>> {
+//     let probe = Probe::new(type_name)?;
+pub fn query_methods(
+    type_name: &str,
+    ra_path: &std::path::Path,
+    deps: Option<&str>,
+) -> anyhow::Result<Vec<Method>> {
+    let probe = Probe::new_with_deps(type_name, deps)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -314,8 +319,10 @@ pub fn query_definition(
     type_name: &str,
     method_name: &str,
     ra_path: &std::path::Path,
+    deps: Option<&str>,
 ) -> anyhow::Result<Option<Definition>> {
-    let probe = Probe::for_definition(type_name, method_name)?;
+    // let probe = Probe::for_definition(type_name, method_name)?;
+    let probe = Probe::for_definition_with_deps(type_name, method_name, deps)?;
 
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
@@ -338,15 +345,6 @@ pub fn query_definition(
 
     // Now wait for indexing
     wait_for_indexing(&mut lsp)?;
-    // lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
-    // lsp.recv_until(20, |msg| {
-    //     (msg["id"] == 1 && msg["result"].is_object()).then_some(())
-    // })?;
-
-    // lsp.send(&LspTransport::initialized())?;
-    // lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()))?;
-
-    // wait_for_indexing(&mut lsp)?;
 
     // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
