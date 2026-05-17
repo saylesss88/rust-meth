@@ -232,7 +232,6 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
 /// Returns an error if the provided JSON response does not conform to the expected LSP
 /// completion shape (missing both a top-level `result` array and an `items` sub-array).
 pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
-    // Borrow a slice reference — no cloning of the items array at all
     let result = &response["result"];
     let items: &[Value] = match result {
         Value::Array(arr) => arr.as_slice(),
@@ -268,73 +267,6 @@ pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
     methods.dedup_by(|a, b| a.name == b.name);
     Ok(methods)
 }
-// pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
-//     let items = match &response["result"] {
-//         Value::Array(arr) => arr.clone(),
-//         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),
-//         _ => anyhow::bail!("Unexpected completion response shape: {response}"),
-//     };
-
-//     // 1. Pre-size to avoid repeated realloc
-//     let mut methods: Vec<Method> = Vec::with_capacity(items.len() / 2);
-
-//     for item in &items {
-//         if item["kind"].as_u64() != Some(KIND_METHOD) {
-//             continue; // skip non-methods before any allocation
-//         }
-//         // 2. Extract and validate name before allocating detail/docs
-//         let name = item["label"]
-//             .as_str()
-//             .unwrap_or("")
-//             .split('(')
-//             .next()
-//             .unwrap_or("")
-//             .trim()
-//             .to_string();
-//         if name.is_empty() {
-//             continue; // skip before allocating detail/docs
-//         }
-//         methods.push(Method {
-//             name,
-//             detail: item["detail"].as_str().map(str::to_string),
-//             documentation: item["documentation"]["value"].as_str().map(str::to_string),
-//         });
-//     }
-
-//     methods.sort_unstable_by(|a, b| a.name.cmp(&b.name)); // 3. sort_unstable is faster
-//     methods.dedup_by(|a, b| a.name == b.name);
-//     Ok(methods)
-// }
-// pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
-//     let items = match &response["result"] {
-//         Value::Array(arr) => arr.clone(),
-//         obj if obj["items"].is_array() => obj["items"].as_array().cloned().unwrap_or_default(),
-//         _ => anyhow::bail!("Unexpected completion response shape: {response}"),
-//     };
-
-//     let mut methods: Vec<Method> = items
-//         .iter()
-//         .filter(|item| item["kind"].as_u64() == Some(KIND_METHOD))
-//         .map(|item| Method {
-//             name: item["label"]
-//                 .as_str()
-//                 .unwrap_or("")
-//                 .split('(')
-//                 .next()
-//                 .unwrap_or("")
-//                 .trim()
-//                 .to_string(),
-//             detail: item["detail"].as_str().map(str::to_string),
-//             documentation: item["documentation"]["value"].as_str().map(str::to_string),
-//         })
-//         .filter(|m| !m.name.is_empty())
-//         .collect();
-
-//     methods.sort_by(|a, b| a.name.cmp(&b.name));
-//     methods.dedup_by(|a, b| a.name == b.name);
-
-//     Ok(methods)
-// }
 
 /// Contains source definition location mappings returned by an LSP `textDocument/definition` call.
 #[must_use]
@@ -362,7 +294,6 @@ pub fn query_definition(
     ra_path: &std::path::Path,
     deps: Option<&str>,
 ) -> anyhow::Result<Option<Definition>> {
-    // let probe = Probe::for_definition(type_name, method_name)?;
     let probe = Probe::for_definition_with_deps(type_name, method_name, deps)?;
 
     let mut child = Command::new(ra_path)
@@ -436,7 +367,6 @@ pub fn query_definition(
 /// Panics if the line position value returned by the LSP protocol fails to map cleanly into a `u32`.
 #[must_use]
 pub fn parse_definition(response: &Value) -> Option<Definition> {
-    // Borrow a reference instead of cloning the whole JSON node
     let result = &response["result"];
     let location: &Value = match result {
         Value::Array(arr) if !arr.is_empty() => &arr[0],
@@ -444,7 +374,6 @@ pub fn parse_definition(response: &Value) -> Option<Definition> {
         _ => return None,
     };
 
-    // Extract uri as &str first, early-return before any allocation
     let uri = location["uri"].as_str().unwrap_or("");
     if uri.is_empty() {
         return None;
@@ -453,10 +382,8 @@ pub fn parse_definition(response: &Value) -> Option<Definition> {
     let line = u32::try_from(location["range"]["start"]["line"].as_u64().unwrap_or(0))
         .expect("LSP definition line should fit in u32");
 
-    // Keep as &str as long as possible — only one strip_prefix call
     let full_path_str = uri.strip_prefix("file://").unwrap_or(uri);
 
-    // path is a sub-slice of full_path_str, so only allocate at the end
     let path = full_path_str
         .find("/library/")
         .or_else(|| full_path_str.find("/src/"))
@@ -473,31 +400,3 @@ pub fn parse_definition(response: &Value) -> Option<Definition> {
         line,
     })
 }
-// pub fn parse_definition(response: &Value) -> Option<Definition> {
-//     let location = match &response["result"] {
-//         Value::Array(arr) if !arr.is_empty() => arr[0].clone(),
-//         single if single.is_object() => single.clone(),
-//         _ => return None,
-//     };
-
-//     let uri = location["uri"].as_str().unwrap_or("").to_string();
-//     let line = u32::try_from(location["range"]["start"]["line"].as_u64().unwrap_or(0))
-//         .expect("LSP definition line should fit in u32");
-
-//     if uri.is_empty() {
-//         return None;
-//     }
-
-//     let full_path = uri.strip_prefix("file://").unwrap_or(&uri).to_string();
-
-//     let path = full_path
-//         .find("/library/")
-//         .or_else(|| full_path.find("/src/"))
-//         .map_or_else(|| full_path.clone(), |idx| full_path[idx + 1..].to_string());
-
-//     Some(Definition {
-//         path,
-//         full_path,
-//         line,
-//     })
-// }
