@@ -28,70 +28,92 @@ pub struct Probe {
 }
 
 impl Probe {
+    /// Creates a new probe project without dependencies (for stdlib types).
     pub fn new(type_name: &str) -> std::io::Result<Self> {
-        let dir = std::env::temp_dir().join(format!("rust-meth-probe-{}", std::process::id()));
+        Self::create_probe(type_name, None, None)
+    }
+
+    /// Creates a new probe project with optional dependencies (for 3rd party crates).
+    ///
+    /// # Arguments
+    /// * `type_name` - The Rust type to query (e.g., "Vec<u8>", "serde_json::Value")
+    /// * `deps` - Optional TOML dependencies section (e.g., "serde_json = \"1.0\"")
+    pub fn new_with_deps(type_name: &str, deps: Option<&str>) -> std::io::Result<Self> {
+        Self::create_probe(type_name, None, deps)
+    }
+
+    /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
+    /// The cursor position points at the start of the method name.
+    pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
+        Self::create_probe(type_name, Some(method_name), None)
+    }
+
+    /// Creates a probe file for go-to-definition with custom dependencies.
+    pub fn for_definition_with_deps(
+        type_name: &str,
+        method_name: &str,
+        deps: Option<&str>,
+    ) -> std::io::Result<Self> {
+        Self::create_probe(type_name, Some(method_name), deps)
+    }
+
+    /// Internal probe creation logic shared by all constructors.
+    ///
+    /// # Arguments
+    /// * `type_name` - The Rust type to query
+    /// * `method_name` - If Some, creates a definition probe; if None, creates a completion probe
+    /// * `deps` - Optional TOML dependencies to add to Cargo.toml
+    fn create_probe(
+        type_name: &str,
+        method_name: Option<&str>,
+        deps: Option<&str>,
+    ) -> std::io::Result<Self> {
+        let suffix = method_name.map_or("probe", |_| "probe-def");
+        let dir = std::env::temp_dir().join(format!("rust-meth-{suffix}-{}", std::process::id()));
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        // Minimal Cargo.toml with no dependencies so indexing is fast.
-        fs::write(
-            dir.join("Cargo.toml"),
-            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
-        )?;
+        // Build Cargo.toml with optional dependencies
+        let cargo_toml = match deps {
+            Some(d) => format!(
+                "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{}\n",
+                d
+            ),
+            None => {
+                "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string()
+            }
+        };
+
+        fs::write(dir.join("Cargo.toml"), cargo_toml)?;
 
         // Source file layout (preamble lines + fn main):
         //
         //   0..N  preamble use statements
         //   N+0:  fn main() {
         //   N+1:      let _x: TYPE = todo!();
-        //   N+2:      _x.         <-- completion trigger after the dot
+        //   N+2:      _x.         <-- completion trigger after the dot (or _x.METHOD() for definition)
         //   N+3:  }
-        // let preamble_lines = PREAMBLE.lines().count() as u32;
         let preamble_lines =
             u32::try_from(PREAMBLE.lines().count()).expect("Preamble is too long to fit in u32");
-        let source =
-            format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n");
+
+        // Generate source based on whether we're doing completion or definition
+        let source = match method_name {
+            Some(method) => {
+                // For definition: _x.METHOD_NAME()
+                format!(
+                    "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method}();\n}}\n"
+                )
+            }
+            None => {
+                // For completion: _x.
+                format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
+            }
+        };
 
         let src_path = src_dir.join("main.rs");
         fs::write(&src_path, &source)?;
 
         // Dot is at preamble_lines + 2, col = len("    _x.")
-        let dot_line = preamble_lines + 2;
-        // let dot_col = "    _x.".len() as u32;
-        let dot_col = u32::try_from("    _x.".len()).expect("failed");
-
-        Ok(Self {
-            dir,
-            src_path,
-            dot_line,
-            dot_col,
-        })
-    }
-
-    /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
-    /// The cursor position points at the start of the method name.
-    pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
-        let dir = std::env::temp_dir().join(format!("rust-meth-probe-def-{}", std::process::id()));
-        let src_dir = dir.join("src");
-        fs::create_dir_all(&src_dir)?;
-
-        fs::write(
-            dir.join("Cargo.toml"),
-            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
-        )?;
-
-        let preamble_lines =
-            u32::try_from(PREAMBLE.lines().count()).expect("preamble is too long to fit in u32");
-
-        // _x.METHOD_NAME()
-        //     ^--- cursor here (col 7)
-        let source = format!(
-            "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method_name}();\n}}\n"
-        );
-
-        let src_path = src_dir.join("main.rs");
-        fs::write(&src_path, &source)?;
-
         let dot_line = preamble_lines + 2;
         let dot_col = u32::try_from("    _x.".len()).expect("failed");
 
