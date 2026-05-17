@@ -11,6 +11,7 @@ pub struct Opts {
     pub goto_def: Option<String>,
     pub open_def: bool,
     pub open_doc: bool,
+    pub deps: Option<String>,
 }
 
 /// Prints the CLI help menu with usage patterns and examples.
@@ -30,6 +31,12 @@ pub fn usage(bin: &str) {
     eprintln!("  {bin} u8 --gd checked_add         # go to definition");
     eprintln!("  {bin} u8 --gd checked_add --open  # open in $EDITOR");
     eprintln!("  {bin} u8 --gd checked_add --open-doc  # open in browser");
+    eprintln!();
+    eprintln!("3rd party crates:");
+    eprintln!("  {bin} 'serde_json::Value' --deps 'serde_json = \"1.0\"'");
+    eprintln!(
+        "  {bin} 'tokio::net::TcpStream' --deps 'tokio = {{ version = \"1.0\", features = [\"net\"] }}'"
+    );
 }
 
 /// Hand-rolls argument parsing to support positional arguments and flags.
@@ -68,6 +75,7 @@ pub fn parse_args() -> Result<Opts, String> {
     let mut goto_def = None;
     let mut open_def = false;
     let mut open_doc = false;
+    let mut deps = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -81,6 +89,12 @@ pub fn parse_args() -> Result<Opts, String> {
             }
             "--open" | "-o" => open_def = true,
             "--open-doc" => open_doc = true,
+            "--deps" => {
+                let dep_str = args.next().ok_or_else(|| {
+                    "--deps requires a dependency string (e.g., 'serde_json = \"1.0\"')".to_string()
+                })?;
+                deps = Some(dep_str);
+            }
             _ if arg.starts_with('-') => {
                 return Err(format!("unexpected flag '{arg}'"));
             }
@@ -119,5 +133,6 @@ pub fn parse_args() -> Result<Opts, String> {
         goto_def,
         open_def,
         open_doc,
+        deps,
     })
 }
