@@ -1,8 +1,8 @@
 # rust-meth
 
 [![Crates.io](https://img.shields.io/crates/v/rust-meth.svg)](https://crates.io/crates/rust-meth)
-[![Documentation](https://docs.rs/rust-meth/badge.svg)](https://docs.rs/rust-meth)
 [![Nix Flake](https://img.shields.io/badge/Nix_Flake-Geared-dddd00?logo=nixos&logoColor=white)](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html)
+[![Documentation](https://docs.rs/rust-meth/badge.svg)](https://docs.rs/rust-meth)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Discover the methods available on any Rust type — with fuzzy filtering, inline
