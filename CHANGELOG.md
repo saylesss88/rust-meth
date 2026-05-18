@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+# [0.2.0] - 2026-05-18
+
+# [0.1.6] - 2026-05-17
+
+- Update README
+
+### Added
+
+- Create an ARCHITECTURE.md
+- Add new benches & tests for 3rd party crates
+- add --snippet and --json output for pipe-friendly/scripting mode
+- Add criterion benchmark tests
+
+### Fixed
+
+- Move helper functions out of main into apps.rs
+- Refactor fn run by creating helper functions.
+- Refactor main, slim down main function by creating helper functions.
+- Search out and replace un-idiomatic patterns
+- Use criterion tests to fix expensive functions (increased perf by up to 70%)
+
 ## [0.1.0] - 2026-05-13
 
 ### Added
