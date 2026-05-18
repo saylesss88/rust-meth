@@ -47,6 +47,8 @@ deprecated methods, and nightly-only APIs. Not a static list.
   - [Go-to-definition](#go-to-definition)
   - [Open in browser](#open-in-browser)
   - [3rd party crates](#3rd-party-crates)
+  - [Call snippets](#call-snippets)
+  - [JSON output](#json-output)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -354,6 +356,74 @@ $ rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "1", features = 
 > The `--deps` flag accepts raw TOML syntax exactly as it would appear in `Cargo.toml`.
 > First-time queries with external crates may take longer (5-10 seconds) as `rust-analyzer`
 > downloads and indexes the dependencies. Subsequent queries will be faster.
+
+---
+
+<a id="call-snippets"></a>
+## Call snippets
+
+Pass `--snippet` to print each method as a ready-to-use call site:
+
+```bash
+rust-meth u8 wrapping --snippet
+```
+
+Output:
+
+```text
+  const fn(self, u8) -> u8
+  → x.wrapping_add(u8)
+
+  const fn(self, i8) -> u8
+  → x.wrapping_add_signed(i8)
+
+  const fn(self, u8) -> u8
+  → x.wrapping_div(u8)
+
+  const fn(self) -> u8
+  → x.wrapping_neg()
+```
+
+Each block shows:
+- the full signature, and
+- a call form on the next line prefixed with `→`.
+
+This is useful when you know the method name pattern but not the exact argument forms, or when you want a quick template to paste into your code.
+
+---
+
+<a id="json-output"></a>
+## JSON output
+
+Pass `--json` to get machine-friendly output:
+
+```bash
+rust-meth u8 wrapping --json
+```
+
+Example:
+
+```json
+[
+  {
+    "name": "wrapping_add",
+    "detail": "const fn(self, u8) -> u8",
+    "documentation": " Wrapping (modular) addition. Computes `self + rhs`,\n wrapping around at the boundary of the type.\n\n # Examples\n\n ```\nassert_eq!(200u8.wrapping_add(55), 255);\nassert_eq!(200u8.wrapping_add(u8::MAX), 199);\n ```"
+  },
+  {
+    "name": "wrapping_add_signed",
+    "detail": "const fn(self, i8) -> u8",
+    "documentation": " Wrapping (modular) addition with a signed integer. Computes\n `self + rhs`, wrapping around at the boundary of the type.\n\n # Examples\n\n ```\nassert_eq!(1u8.wrapping_add_signed(2), 3);\nassert_eq!(1u8.wrapping_add_signed(-2), u8::MAX);\nassert_eq!((u8::MAX - 2).wrapping_add_signed(4), 1);\n ```"
+  }
+]
+```
+
+Each item includes:
+- `name`: method name
+- `detail`: full signature as seen in the terminal
+- `documentation`: raw doc comment text (newlines preserved)
+
+This mode is ideal for scripting, piping into `jq`, or integrating with other tools.
 
 ---
 

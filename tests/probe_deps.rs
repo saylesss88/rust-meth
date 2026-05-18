@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 //! Integration tests for `Probe::new_with_deps` and `Probe::for_definition_with_deps`.
 //! These tests exercise the filesystem I/O path end-to-end without spawning rust-analyzer.
 

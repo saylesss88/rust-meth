@@ -180,6 +180,7 @@ fn path_to_uri(path: &Path) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

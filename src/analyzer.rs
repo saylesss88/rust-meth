@@ -404,6 +404,7 @@ pub fn parse_definition(response: &Value) -> Option<Definition> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -621,7 +622,7 @@ mod tests {
         let def = parse_definition(&resp).unwrap();
         // path should start at "library/" not "/"
         assert!(def.path.starts_with("library/"));
-        assert!(!def.path.starts_with("/"));
+        assert!(!def.path.starts_with('/'));
     }
 
     #[test]
