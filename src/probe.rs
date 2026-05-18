@@ -1,11 +1,19 @@
-// Creates a minimal temporary Cargo project containing a single source file
-// that declares `let _x: TYPE = todo!();` followed by `_x.` The dot is the
-// completion trigger point.  The project is cleaned up when `Probe` is dropped.
+//! A utility for generating ephemeral, minimal Cargo projects ("probes") used to query
+//! Language Server Protocol (LSP) intelligence like autocompletions or go-to-definitions.
+//!
+//! A `Probe` creates a temporary directory containing a valid Cargo package with a single source file.
+//! The source file declares an isolated variable statement `let _x: TYPE = todo!();` followed by a target
+//! interaction point (such as `_x.` or `_x.method()`).
+//!
+//! When the [`Probe`] instance goes out of scope, its [`Drop`] implementation automatically deletes
+//! the entire temporary directory and its contents from the disk.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// Global atomic counter ensuring that concurrently generated probe projects
+/// receive unique names within the OS temporary directory.
 static PROBE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 // Preamble added to every probe file so common std types resolve without
@@ -22,11 +30,17 @@ use std::ops::*;
 use std::path::{Path, PathBuf};
 ";
 
+/// Represents an ephemeral Cargo project written to disk for LSP interrogation.
+///
+/// Deletes itself automatically when dropped.
 pub struct Probe {
+    /// The absolute path to the root directory of the temporary Cargo project.
     pub dir: PathBuf,
+    /// The absolute path to the generated `src/main.rs` file.
     pub src_path: PathBuf,
-    /// LSP position (0-indexed line, character) of the dot trigger.
+    /// The 0-indexed line number in `src/main.rs` pointing to the target interaction point (the dot trigger).
     pub dot_line: u32,
+    /// The 0-indexed character/column offset pointing exactly after the dot (`_x.`) in `src/main.rs`.
     pub dot_col: u32,
 }
 
@@ -140,11 +154,15 @@ impl Probe {
         })
     }
 
+    /// Converts the generated `src/main.rs` file path into a formatted `file://` URI string.
+    ///
+    /// Useful for protocols like LSP that require document paths formatted as URLs.
     #[must_use]
     pub fn src_uri(&self) -> String {
         path_to_uri(&self.src_path)
     }
 
+    /// Converts the root workspace directory path into a formatted `file://` URI string.
     #[must_use]
     pub fn root_uri(&self) -> String {
         path_to_uri(&self.dir)
