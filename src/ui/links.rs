@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_primitive() {
-        let def = crate::analyzer::Definition {
+        let def = rust_meth::analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/num/mod.rs"
                 .to_string(),
             path: "library/core/src/num/mod.rs".to_string(),
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_string() {
-        let def = crate::analyzer::Definition {
+        let def = rust_meth::analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/string.rs"
                 .to_string(),
             path: "library/alloc/src/string.rs".to_string(),
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_option() {
-        let def = crate::analyzer::Definition {
+        let def = rust_meth::analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/option.rs"
                 .to_string(),
             path: "library/core/src/option.rs".to_string(),
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_third_party() {
-        let def = crate::analyzer::Definition {
+        let def = rust_meth::analyzer::Definition {
             full_path:
                 "/home/user/.cargo/registry/src/index.crates.io-xxx/serde-1.0.197/src/lib.rs"
                     .to_string(),
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_generic_type() {
-        let def = crate::analyzer::Definition {
+        let def = rust_meth::analyzer::Definition {
             full_path:
                 "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs"
                     .to_string(),
