@@ -11,6 +11,8 @@ pub struct Opts {
     pub open_def: bool,
     pub open_doc: bool,
     pub deps: Option<String>,
+    pub snippet: bool,
+    pub json: bool,
 }
 
 /// The result of parsing command-line arguments.
@@ -103,6 +105,8 @@ pub fn parse_args() -> Result<ParseResult, String> {
     let mut open_def = false;
     let mut open_doc = false;
     let mut deps = None;
+    let mut snippet = false;
+    let mut json = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -122,6 +126,8 @@ pub fn parse_args() -> Result<ParseResult, String> {
                 })?;
                 deps = Some(dep_str);
             }
+            "--snippet" => snippet = true,
+            "--json" => json = true,
             _ if arg.starts_with('-') => {
                 return Err(format!("unexpected flag '{arg}'"));
             }
@@ -161,5 +167,7 @@ pub fn parse_args() -> Result<ParseResult, String> {
         open_def,
         open_doc,
         deps,
+        snippet,
+        json,
     }))
 }

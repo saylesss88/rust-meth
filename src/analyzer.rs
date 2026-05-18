@@ -22,6 +22,7 @@ const KIND_METHOD: u64 = 2;
 static RA_PATH_CACHE: OnceLock<PathBuf> = OnceLock::new();
 
 /// Represents a method extracted from a `rust-analyzer` completion list.
+#[derive(serde::Serialize)]
 pub struct Method {
     /// The plain name of the method (e.g., `"len"`).
     pub name: String,

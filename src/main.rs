@@ -108,6 +108,20 @@ fn run() -> Result<(), String> {
         });
     }
 
+    // `--json` mode
+    if opts.json {
+        let out = serde_json::to_string_pretty(&matched).map_err(|e| e.to_string())?;
+        println!("{out}");
+        return Ok(());
+    }
+
+    // `--snippet` mode
+    if opts.snippet {
+        for m in &matched {
+            ui::print_snippet(m);
+        }
+        return Ok(());
+    }
     match opts.filter.as_deref() {
         Some(pat) => println!(
             "\n{}: methods on `{}` matching {pat:?}\n",
