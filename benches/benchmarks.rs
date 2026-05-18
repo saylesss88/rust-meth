@@ -7,25 +7,22 @@ use rust_meth::{
 use serde_json::{Value, json};
 use std::hint::black_box;
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
-/// Build a fake LSP completion response with `n` method items.
 fn make_completion_response(n: usize) -> Value {
     let items: Vec<Value> = (0..n)
         .map(|i| {
             json!({
-                "kind": 2,  // KIND_METHOD
+                "kind": 2,
                 "label": format!("method_{i}(…)"),
                 "detail": format!("pub fn method_{i}(&self) -> usize"),
                 "documentation": { "kind": "markdown", "value": format!("Docs for method {i}") }
             })
         })
         .collect();
-
     json!({ "result": { "items": items, "isIncomplete": false } })
 }
 
-/// Build a fake LSP definition response (array form).
 fn make_definition_response() -> Value {
     json!({
         "result": [{
@@ -38,22 +35,20 @@ fn make_definition_response() -> Value {
     })
 }
 
-// ── 1. parse_methods ─────────────────────────────────────────────────────────
+// ── 1. parse_methods ──────────────────────────────────────────────────────────
 
 fn bench_parse_methods(c: &mut Criterion) {
     let mut group = c.benchmark_group("parse_methods");
-
     for size in [10, 50, 100, 300] {
         let response = make_completion_response(size);
         group.bench_with_input(BenchmarkId::from_parameter(size), &response, |b, r| {
             b.iter(|| parse_methods(black_box(r)).unwrap());
         });
     }
-
     group.finish();
 }
 
-// ── 2. parse_definition ──────────────────────────────────────────────────────
+// ── 2. parse_definition ───────────────────────────────────────────────────────
 
 fn bench_parse_definition(c: &mut Criterion) {
     let response = make_definition_response();
@@ -62,7 +57,7 @@ fn bench_parse_definition(c: &mut Criterion) {
     });
 }
 
-// ── 3. LspTransport message constructors ─────────────────────────────────────
+// ── 3. LspTransport message constructors ──────────────────────────────────────
 
 fn bench_lsp_message_construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("lsp_messages");
@@ -96,25 +91,75 @@ fn bench_lsp_message_construction(c: &mut Criterion) {
     group.finish();
 }
 
-// ── 4. Probe creation (I/O) ──────────────────────────────────────────────────
+// ── 4. Probe creation — completion (I/O) ─────────────────────────────────────
 
 fn bench_probe_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("probe_creation");
 
-    // Stdlib type — no deps section written
     group.bench_function("stdlib_type", |b| {
         b.iter(|| {
             let p = Probe::new_with_deps(black_box("Vec<u8>"), None).unwrap();
-            // Drop triggers cleanup; we want to measure full create+destroy cycle
             drop(p);
         });
     });
 
-    // Type with dependencies
     group.bench_function("with_deps", |b| {
         b.iter(|| {
             let p = Probe::new_with_deps(
                 black_box("serde_json::Value"),
+                Some(black_box(r#"serde_json = "1.0""#)),
+            )
+            .unwrap();
+            drop(p);
+        });
+    });
+
+    group.bench_function("with_multiple_deps", |b| {
+        b.iter(|| {
+            let p = Probe::new_with_deps(
+                black_box("serde_json::Value"),
+                Some(black_box(
+                    "serde = { version = \"1.0\", features = [\"derive\"] }\nserde_json = \"1.0\"",
+                )),
+            )
+            .unwrap();
+            drop(p);
+        });
+    });
+
+    group.finish();
+}
+
+// ── 5. Probe creation — definition (I/O) ─────────────────────────────────────
+
+fn bench_probe_definition_creation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("probe_definition_creation");
+
+    group.bench_function("stdlib_no_deps", |b| {
+        b.iter(|| {
+            let p = Probe::for_definition_with_deps(black_box("Vec<u8>"), black_box("len"), None)
+                .unwrap();
+            drop(p);
+        });
+    });
+
+    group.bench_function("stdlib_with_deps", |b| {
+        b.iter(|| {
+            let p = Probe::for_definition_with_deps(
+                black_box("serde_json::Value"),
+                black_box("as_str"),
+                Some(black_box(r#"serde_json = "1.0""#)),
+            )
+            .unwrap();
+            drop(p);
+        });
+    });
+
+    group.bench_function("long_method_name_with_deps", |b| {
+        b.iter(|| {
+            let p = Probe::for_definition_with_deps(
+                black_box("serde_json::Value"),
+                black_box("as_object_mut"),
                 Some(black_box(r#"serde_json = "1.0""#)),
             )
             .unwrap();
@@ -133,5 +178,6 @@ criterion_group!(
     bench_parse_definition,
     bench_lsp_message_construction,
     bench_probe_creation,
+    bench_probe_definition_creation, // ← new
 );
 criterion_main!(benches);

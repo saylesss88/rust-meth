@@ -4,6 +4,9 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static PROBE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 // Preamble added to every probe file so common std types resolve without
 // the user needing to fully qualify them (e.g. `HashMap` not `std::collections::HashMap`).
@@ -90,8 +93,12 @@ impl Probe {
         method_name: Option<&str>,
         deps: Option<&str>,
     ) -> std::io::Result<Self> {
+        let id = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let suffix = method_name.map_or("probe", |_| "probe-def");
-        let dir = std::env::temp_dir().join(format!("rust-meth-{suffix}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("rust-meth-{suffix}-{}-{id}", std::process::id()));
+
+        // let dir = std::env::temp_dir().join(format!("rust-meth-{suffix}-{}", std::process::id()));
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
@@ -169,5 +176,166 @@ fn path_to_uri(path: &Path) -> String {
         format!("file://{s}")
     } else {
         format!("file:///{s}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- helpers -------------------------------------------------------
+
+    fn preamble_line_count() -> u32 {
+        u32::try_from(PREAMBLE.lines().count()).unwrap()
+    }
+
+    // -- Cargo.toml generation ------------------------------------------
+
+    #[test]
+    fn no_deps_omits_dependencies_section() {
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let cargo = fs::read_to_string(p.dir.join("Cargo.toml")).unwrap();
+        assert!(
+            !cargo.contains("[dependencies]"),
+            "Cargo.toml should not have a [dependencies] section when deps is None"
+        );
+        assert!(cargo.contains("[package]"));
+        assert!(cargo.contains(r#"name = "probe""#));
+        assert!(cargo.contains(r#"edition = "2024""#));
+    }
+
+    #[test]
+    fn with_deps_injects_dependencies_section() {
+        let p = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "1.0""#)).unwrap();
+        let cargo = fs::read_to_string(p.dir.join("Cargo.toml")).unwrap();
+        assert!(cargo.contains("[dependencies]"));
+        assert!(cargo.contains(r#"serde_json = "1.0""#));
+    }
+
+    #[test]
+    fn multiple_deps_all_appear_in_cargo_toml() {
+        let deps = "serde = { version = \"1.0\", features = [\"derive\"] }\nserde_json = \"1.0\"";
+        let p = Probe::new_with_deps("serde_json::Value", Some(deps)).unwrap();
+        let cargo = fs::read_to_string(p.dir.join("Cargo.toml")).unwrap();
+        assert!(cargo.contains("[dependencies]"));
+        assert!(cargo.contains("serde ="));
+        assert!(cargo.contains(r#"serde_json = "1.0""#));
+    }
+
+    // ── source content ───────────────────────────────────────────────────────
+
+    #[test]
+    fn completion_probe_source_has_dot_trigger() {
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let src = p.source().unwrap();
+        assert!(
+            src.contains("let _x: Vec<u8> = todo!();"),
+            "source should declare the type"
+        );
+        // ends with `_x.` NOT `_x.something()`
+        assert!(
+            src.contains("    _x.\n"),
+            "completion probe should have bare dot trigger"
+        );
+    }
+
+    #[test]
+    fn definition_probe_source_has_method_call() {
+        let p = Probe::for_definition_with_deps("Vec<u8>", "push", None).unwrap();
+        let src = p.source().unwrap();
+        assert!(src.contains("let _x: Vec<u8> = todo!();"));
+        assert!(
+            src.contains("_x.push();"),
+            "definition probe should contain the method call"
+        );
+    }
+
+    #[test]
+    fn completion_probe_with_deps_type_in_source() {
+        let p = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "1.0""#)).unwrap();
+        let src = p.source().unwrap();
+        assert!(src.contains("let _x: serde_json::Value = todo!();"));
+    }
+
+    #[test]
+    fn definition_probe_with_deps_cargo_and_source_correct() {
+        let p = Probe::for_definition_with_deps(
+            "serde_json::Value",
+            "as_str",
+            Some(r#"serde_json = "1.0""#),
+        )
+        .unwrap();
+        let cargo = fs::read_to_string(p.dir.join("Cargo.toml")).unwrap();
+        assert!(cargo.contains("[dependencies]"));
+        let src = p.source().unwrap();
+        assert!(src.contains("serde_json::Value"));
+        assert!(src.contains("_x.as_str();"));
+    }
+
+    // ── dot position ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn dot_col_is_seven() {
+        // "    _x." is always 7 characters
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        assert_eq!(p.dot_col, 7, r#""    _x." should be 7 chars"#);
+    }
+
+    #[test]
+    fn dot_line_is_preamble_plus_two() {
+        // layout: preamble lines, fn main() {, let _x = …, _x.
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        assert_eq!(p.dot_line, preamble_line_count() + 2);
+    }
+
+    #[test]
+    fn dot_line_same_for_definition_probe() {
+        let p = Probe::for_definition_with_deps("Vec<u8>", "len", None).unwrap();
+        assert_eq!(p.dot_line, preamble_line_count() + 2);
+    }
+
+    // ── URI helpers ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn src_uri_is_file_uri_ending_in_main_rs() {
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let uri = p.src_uri();
+        assert!(
+            uri.starts_with("file://"),
+            "src_uri should be a file:// URI"
+        );
+        assert!(
+            uri.ends_with("/src/main.rs"),
+            "src_uri should end in /src/main.rs"
+        );
+    }
+
+    #[test]
+    fn root_uri_is_file_uri_not_ending_in_main_rs() {
+        let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let uri = p.root_uri();
+        assert!(uri.starts_with("file://"));
+        assert!(!uri.ends_with("main.rs"));
+    }
+
+    // ── cleanup ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn drop_removes_temp_directory() {
+        let dir = {
+            let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+            assert!(p.dir.exists(), "dir should exist while probe is alive");
+            p.dir.clone()
+        };
+        assert!(!dir.exists(), "temp dir should be removed after drop");
+    }
+
+    #[test]
+    fn definition_probe_drop_removes_temp_directory() {
+        let dir = {
+            let p = Probe::for_definition_with_deps("Vec<u8>", "len", None).unwrap();
+            p.dir.clone()
+        };
+        assert!(!dir.exists());
     }
 }
