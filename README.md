@@ -430,32 +430,7 @@ This mode is ideal for scripting, piping into `jq`, or integrating with other to
 <a id="how-it-works"></a>
 ## How it works
 
-<details>
-<summary>Implementation details</summary>
-
-For each query, `rust-meth`:
-
-1. Creates a temporary Cargo project in `/tmp` with a probe file:
-
-```rust
-   use std::collections::*;
-   // ... other common std imports ...
-   fn main() {
-       let _x: TYPE = todo!();
-       _x.  // ← LSP completion trigger
-   }
-```
-
-2. If `--deps` is provided, adds those dependencies to the probe's `Cargo.toml`
-3. Spawns `rust-analyzer` as a subprocess
-4. Performs the LSP handshake (`initialize` → `initialized` → `textDocument/didOpen`)
-5. Waits for RA to finish indexing, then sends `textDocument/completion` at the dot
-6. Filters the response for `CompletionItemKind::Method` items
-7. Prints names and signatures, then shuts RA down
-
-The temporary project is cleaned up automatically on exit.
-
-</details>
+- See [Architecture](/ARCHITECTURE.md)
 
 ---
 
