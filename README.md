@@ -123,7 +123,9 @@ rust-meth f64
 rust-meth 'Vec<u8>'
 rust-meth 'Option<u8>'
 rust-meth 'HashMap<String, u32>'
+rust-meth 'Result<T,E>'
 rust-meth 'Option<Result<Vec<u8>, std::io::Error>>'
+rust-meth 'std::sync::atomic'
 ```
 
 <a id="fuzzy-filter"></a>
