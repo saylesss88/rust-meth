@@ -205,25 +205,6 @@ fn strip_version_suffix(crate_dir: &str) -> &str {
     let total_len: usize = parts[drop..].iter().map(|s| s.len() + 1).sum();
     &crate_dir[..total_len.saturating_sub(1)]
 }
-// fn strip_version_suffix(crate_dir: &str) -> &str {
-//     let parts: Vec<&str> = crate_dir.rsplitn(10, '-').collect();
-//     let mut drop = 0;
-
-//     for part in &parts {
-//         if part.chars().next().is_some_and(|c| c.is_ascii_digit()) {
-//             drop += 1;
-//         } else {
-//             break;
-//         }
-//     }
-
-//     if drop == 0 {
-//         return crate_dir;
-//     }
-
-//     let total_len: usize = parts[drop..].iter().map(|s| s.len() + 1).sum();
-//     &crate_dir[..total_len.saturating_sub(1)]
-// }
 
 #[cfg(test)]
 mod tests {
