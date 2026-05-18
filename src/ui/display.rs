@@ -21,10 +21,19 @@ pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
 }
 
 /// Formats a method signature into a call snippet.
-/// e.g. detail = "pub fn checked_add(self, rhs: u8) -> Option<u8>"
-/// outputs:
+///
+/// For example, given a method with
+///
+/// ```text
+/// detail = "pub fn checked_add(self, rhs: u8) -> Option<u8>"
+/// ```
+///
+/// the output is:
+///
+/// ```text
 ///   checked_add(self, rhs: u8) -> Option<u8>
 ///   → x.checked_add(rhs)
+/// ```
 pub fn print_snippet(m: &analyzer::Method) {
     let Some(detail) = &m.detail else {
         println!("  {}", m.name);
