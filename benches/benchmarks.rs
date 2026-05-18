@@ -1,10 +1,11 @@
 #![allow(clippy::unwrap_used)]
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rust_meth::{
     LspTransport, Probe,
     analyzer::{parse_definition, parse_methods},
 };
 use serde_json::{Value, json};
+use std::hint::black_box;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

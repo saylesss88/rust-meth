@@ -474,6 +474,7 @@ dependencies = [
  "dialoguer",
  "fuzzy-matcher",
  "indicatif",
+ "serde",
  "serde_json",
 ]
 
