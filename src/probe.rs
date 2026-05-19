@@ -82,6 +82,14 @@ impl Probe {
         Self::create_probe(type_name, Some(method_name), None)
     }
 
+    fn infer_dep(type_name: &str) -> Option<String> {
+        let crate_name = type_name.split("::").next()?;
+        if crate_name.chars().next()?.is_ascii_lowercase() {
+            Some(format!(r#"{crate_name} = "*""#))
+        } else {
+            None
+        }
+    }
     /// Creates a probe file for go-to-definition with custom dependencies.
     ///
     /// # Errors
@@ -116,9 +124,19 @@ impl Probe {
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        let cargo_toml = deps.map_or_else(|| "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(), |d| format!(
-                 "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
-             ));
+        let effective_deps = deps
+            .map(str::to_owned)
+            .or_else(|| Self::infer_dep(type_name));
+
+        let cargo_toml = effective_deps.map_or_else(
+        || "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(),
+        |d| format!(
+            "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
+        ),
+    );
+        // let cargo_toml = deps.map_or_else(|| "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(), |d| format!(
+        //          "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
+        //      ));
 
         // Build Cargo.toml with optional dependencies
 
