@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 
 use serde_json::Value;
 
-use crate::lsp::LspTransport;
+use crate::LspTransport;
 use crate::probe::Probe;
 
 /// LSP `CompletionItemKind` value corresponding to a Method.
