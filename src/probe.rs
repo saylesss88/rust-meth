@@ -82,6 +82,19 @@ impl Probe {
         Self::create_probe(type_name, Some(method_name), None)
     }
 
+    /// Infers a minimal Cargo dependency string from a type path when no explicit
+    /// `--deps` argument is provided.
+    ///
+    /// Returns `Some("crate_name = \"*\"")` if the leading path segment starts with
+    /// a lowercase letter (indicating a third-party crate), or `None` for stdlib/
+    /// primitive types whose leading segment is uppercase (e.g. `Vec`, `HashMap`).
+    ///
+    /// # Examples
+    /// ```
+    /// assert_eq!(infer_dep("serde_json::Value"), Some(r#"serde_json = "*""#.into()));
+    /// assert_eq!(infer_dep("Vec<u8>"),           None);
+    /// assert_eq!(infer_dep("HashMap<K, V>"),     None);
+    /// ```
     fn infer_dep(type_name: &str) -> Option<String> {
         let crate_name = type_name.split("::").next()?;
         if crate_name.chars().next()?.is_ascii_lowercase() {
@@ -134,9 +147,6 @@ impl Probe {
             "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
         ),
     );
-        // let cargo_toml = deps.map_or_else(|| "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(), |d| format!(
-        //          "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
-        //      ));
 
         // Build Cargo.toml with optional dependencies
 
