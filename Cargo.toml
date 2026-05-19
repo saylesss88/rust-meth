@@ -10,7 +10,7 @@ documentation = "https://docs.rs/rust-meth"
 readme = "README.md"
 keywords = ["rust-analyzer", "lsp", "methods", "cli", "introspection"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = [".github", "*.gif", "*.png", "tests/", "benches/"]
+exclude = [".github", "*.gif", "*.png", "tests/", "benches/", "assets/"]
 resolver = "3"
 
 [[bin]]
