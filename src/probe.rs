@@ -90,7 +90,7 @@ impl Probe {
     /// primitive types whose leading segment is uppercase (e.g. `Vec`, `HashMap`).
     ///
     /// # Examples
-    /// ```
+    /// ```text
     /// assert_eq!(infer_dep("serde_json::Value"), Some(r#"serde_json = "*""#.into()));
     /// assert_eq!(infer_dep("Vec<u8>"),           None);
     /// assert_eq!(infer_dep("HashMap<K, V>"),     None);
