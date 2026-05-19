@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # [0.2.0] - 2026-05-18
 
+### Added
+
+- Create an ARCHITECTURE.md
+
+### Fixed
+
+- Change license to Apache-2.0 over MIT OR Apache-2.0 for simplicity
+
+- Use re-export in analyzer.rs rather than full path
+
 # [0.1.6] - 2026-05-17
 
 - Update README
