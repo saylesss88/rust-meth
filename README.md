@@ -320,14 +320,13 @@ $ rust-meth 'HashMap<String, u32>' --gd get --open-doc  # doc.rust-lang.org/std/
 <a id="3rd-party-crates"></a>
 ## 3rd party crates
 
-Use the `--deps` flag to query methods on types from external crates:
+For types where the crate name matches the type path prefix, `--deps` can be
+omitted entirely:
 
 ```sh
-$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
+$ rust-meth 'serde_json::Value'
 ✓ Found 37 methods (5.7s)
-
 rust-meth: methods on `serde_json::Value`
-
   as_array          fn(&self) -> Option<&Vec<Value, Global>>
   as_bool           fn(&self) -> Option<bool>
   as_f64            fn(&self) -> Option<f64>
@@ -341,35 +340,37 @@ rust-meth: methods on `serde_json::Value`
 ```
 
 **Works with all features:**
-
 ```sh
 # Interactive mode
-$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"' -i
-
+$ rust-meth 'serde_json::Value' -i
 # Fuzzy filter
-$ rust-meth 'serde_json::Value' as_bool --deps 'serde_json = "1.0"'
-
+$ rust-meth 'serde_json::Value' as_bool
 # Show documentation
-$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"' --doc
+$ rust-meth 'tokio::net::TcpStream' --doc
+```
+
+Use `--deps` to pin a version or add features:
+
+```sh
+$ rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
 ```
 
 **Multiple dependencies:**
-
 ```sh
 $ rust-meth 'reqwest::Client' --deps 'reqwest = "0.11"
 tokio = { version = "1", features = ["full"] }'
 ```
 
 **Complex dependency specifications:**
-
 ```sh
 $ rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "1", features = ["net"] }'
 ```
 
 > [!NOTE]
 > The `--deps` flag accepts raw TOML syntax exactly as it would appear in `Cargo.toml`.
-> First-time queries with external crates may take longer (5-10 seconds) as `rust-analyzer`
-> downloads and indexes the dependencies. Subsequent queries will be faster.
+> When omitted, the crate is inferred from the type path and fetched at the latest version.
+> First-time queries may take longer (5–10 seconds) as `rust-analyzer` downloads and indexes
+> dependencies. Subsequent queries will be faster.
 
 ---
 
