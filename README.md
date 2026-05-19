@@ -255,6 +255,14 @@ u8::checked_add  library/core/src/num/uint_macros.rs:902
 # opens uint_macros.rs at line 902 in $EDITOR
 ```
 
+```sh
+rust-meth 'HashMap<String, u32>' --gd iter_mut --open
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/rustmeth-open.gif" width="600" alt="rustmeth-open demo">
+</p>
+
 Supports `hx` / `helix`, `nvim`, `vim`, `emacs`, and `code`. Any editor that
 accepts `+LINE file` on the command line will also work.
 
@@ -287,6 +295,10 @@ $ rust-meth u8 --gd isqrt --open-doc
 u8::isqrt  library/core/src/num/uint_macros.rs:3684
 Opening in existing browser session.
 ```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/rustmeth-browse.gif" width="600" alt="rustmeth-browse demo">
+</p>
 
 Works for primitives, stdlib structs, and collections:
 
