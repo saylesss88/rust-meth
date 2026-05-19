@@ -96,6 +96,13 @@ fn bench_lsp_message_construction(c: &mut Criterion) {
 fn bench_probe_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("probe_creation");
 
+    group.bench_function("inferred_deps", |b| {
+        b.iter(|| {
+            let p = Probe::new_with_deps(black_box("serde_json::Value"), None).unwrap();
+            drop(p);
+        });
+    });
+
     group.bench_function("stdlib_type", |b| {
         b.iter(|| {
             let p = Probe::new_with_deps(black_box("Vec<u8>"), None).unwrap();
