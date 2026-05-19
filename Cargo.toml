@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth"
-version = "0.2.0"                                                                                                                                                                      # NOTE: remember to update the CHANGELOG.md & add a tag before publishing
+version = "0.2.1-dev"                                                                                                                                                                  # NOTE: remember to update the CHANGELOG.md & add a tag before publishing
 edition = "2024"
 description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition into standard library source code."
 license = "Apache-2.0"
@@ -22,17 +22,19 @@ name = "rust_meth"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = {version = "1.0.102", default-features = false}
 dialoguer = {version = "0.12", features = [
 	"fuzzy-select",
 ], default-features = false}
 fuzzy-matcher = "0.3.7"
-indicatif = "0.18.4"
-serde = {version = "1.0.228", default-features = false, features = ["derive"]}
+indicatif = {version = "0.18.4", default-features = false}
+serde = {version = "1.0.228", default-features = false, features = [
+	"serde_derive",
+]}
 serde_json = "1.0.149"
 
 [dev-dependencies]
-criterion = {version = "0.8.2", features = ["html_reports"]}
+criterion = {version = "0.8.2", default-features = false}
 
 [[bench]]
 name = "benchmarks"
