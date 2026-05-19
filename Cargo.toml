@@ -1,9 +1,9 @@
 [package]
 name = "rust-meth"
-version = "0.2.0"
+version = "0.2.0"                                                                                                                                                                      # NOTE: remember to update the CHANGELOG.md & add a tag before publishing
 edition = "2024"
 description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition into standard library source code."
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 homepage = "https://github.com/saylesss88/rust-meth"
 repository = "https://github.com/saylesss88/rust-meth"
 documentation = "https://docs.rs/rust-meth"
@@ -28,7 +28,7 @@ dialoguer = {version = "0.12", features = [
 ], default-features = false}
 fuzzy-matcher = "0.3.7"
 indicatif = "0.18.4"
-serde = {version = "1.0.228", features = ["derive"]}
+serde = {version = "1.0.228", default-features = false, features = ["derive"]}
 serde_json = "1.0.149"
 
 [dev-dependencies]
