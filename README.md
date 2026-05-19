@@ -452,4 +452,4 @@ This mode is ideal for scripting, piping into `jq`, or integrating with other to
 <a id="license"></a>
 ## License
 
-[MIT OR Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
+[Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
