@@ -4,7 +4,7 @@ default-members = ["lib", "cli"]
 resolver = "3"
 
 [workspace.dependencies]
-rust-meth-lib = {path = "lib", version = "0.1.0"}
+rust-meth-lib = {path = "lib", version = "0.1.1"}
 [profile.dev]
 opt-level = 1
 debug = true
