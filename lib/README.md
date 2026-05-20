@@ -78,6 +78,37 @@ let transport = LspTransport::spawn(probe.root())?;
 > for embedding or extending the `rust-meth` workflow, not as a stable
 > general-purpose LSP client.
 
+## Error Handling
+
+The library uses a single [`RustMethError`](https://docs.rs/rust-meth-lib/latest/rust_meth_lib/error/enum.RustMethError.html)
+enum (via [`thiserror`](https://docs.rs/thiserror)) and a `Result<T>` alias over it.
+
+| Variant | Cause |
+|---------|-------|
+| `Io` | OS / file system errors (`std::io::Error`) |
+| `Json` | JSON serialization or deserialization failure |
+| `ParseInt` | String-to-integer conversion failure |
+| `NoContentLength` | LSP response missing a `Content-Length` header |
+| `RecvExhausted { limit }` | Message loop hit `limit` without matching a response |
+| `UnexpectedResponseShape` | Structurally valid JSON but missing expected fields |
+| `RustAnalyzerNotFound` | `rust-analyzer` not on `PATH` or in component directory |
+
+All fallible functions in this crate return `rust_meth_lib::Result<T>`.
+If you're embedding the library, you can convert into your own error type via `?`
+since `RustMethError` implements `std::error::Error`.
+
+````rust
+use rust_meth_lib::{Result, error::RustMethError};
+
+fn my_wrapper() -> Result<()> {
+    // RustAnalyzerNotFound, Io, Json, etc. all propagate with ?
+    let probe = Probe::new("u8", None)?;
+    Ok(())
+}
+````
+
+
+
 ## Requirements
 
 - `rust-analyzer` on `PATH`: `rustup component add rust-analyzer`
@@ -93,6 +124,7 @@ let transport = LspTransport::spawn(probe.root())?;
 | `dialoguer` | Interactive fuzzy selection |
 | `owo-colors` | Colorized terminal output |
 | `indicatif` | Progress spinner |
+| `thiserror` | Ergonomic custom error enum derivation |
 
 ## License
 
