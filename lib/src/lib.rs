@@ -1,4 +1,5 @@
-//! Rust method explorer — queries LSP completions and definitions
+// #![doc = include_str!("../README.md")]
+//! Rust method explorer, queries LSP completions and definitions
 //! for any Rust type, including third-party crates.
 
 #![deny(missing_docs)]
