@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 authors = ["T. Sawyer <saylesss87@proton.me>"]
 description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition."
