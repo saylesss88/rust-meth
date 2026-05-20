@@ -153,18 +153,18 @@ pub fn query_methods(
                 break;
             }
 
-            if attempt < 10 {
-                let delay = match attempt {
-                    1 => 50,  // 50ms - RA might be ready immediately
-                    2 => 100, // 100ms
-                    3 => 200, // 200ms
-                    _ => 300, // 300ms for later attempts
-                };
-                std::thread::sleep(std::time::Duration::from_millis(delay));
-            }
             // if attempt < 10 {
-            //     std::thread::sleep(std::time::Duration::from_millis(500));
+            //     let delay = match attempt {
+            //         1 => 50,  // 50ms - RA might be ready immediately
+            //         2 => 100, // 100ms
+            //         3 => 200, // 200ms
+            //         _ => 300, // 300ms for later attempts
+            //     };
+            //     std::thread::sleep(std::time::Duration::from_millis(delay));
             // }
+            if attempt < 10 {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
         }
         response
     };

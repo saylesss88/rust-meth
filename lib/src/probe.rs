@@ -174,6 +174,13 @@ impl Probe {
         let dot_line = preamble_lines + 2;
         let dot_col = u32::try_from("    _x.".len()).expect("failed");
 
+        if std::env::var("RUST_METH_DEBUG").is_ok() {
+            eprintln!("=== probe source ===");
+            for (i, line) in source.lines().enumerate() {
+                eprintln!("{i:3}: {line}");
+            }
+            eprintln!("cursor → line={dot_line} col={dot_col}");
+        }
         Ok(Self {
             dir,
             src_path,
