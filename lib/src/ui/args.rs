@@ -1,28 +1,70 @@
 use std::fmt::Write;
-/// Holds the parsed command-line configuration.
+
+/// Configuration options for specifying execution behavior, queries, and presentation modes.
+///
+/// `Opts` acts as the primary configuration object driving the analyzer and UI routing layers.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Opts {
+    /// The name of the binary or application executable (used primarily for help headers).
     pub bin: String,
+
+    /// The fully qualified or exact string representation of the type path to analyze
+    /// (e.g., `std::collections::HashMap`).
     pub type_name: String,
+
+    /// An optional text pattern used to match and filter down target method names.
     pub filter: Option<String>,
+
+    /// When `true`, instructs the tool to drop into an interactive terminal-based
+    /// selection mode rather than outputting text sequentially.
     pub interactive: bool,
+
+    /// When `true`, prints inline documentation summaries directly alongside matching methods
+    /// in the default terminal layout.
     pub show_doc: bool,
+
+    /// An optional exact method name targeting "go-to-definition" mechanics.
+    /// If populated, it short-circuits standard filtering and visualization paths.
     pub goto_def: Option<String>,
+
+    /// When `true` alongside `goto_def`, attempts to launch the host system's native
+    /// editor to display the source code line definition.
     pub open_def: bool,
+
+    /// When `true` alongside `goto_def`, builds a local documentation URL and triggers
+    /// the system's default web browser to view it.
     pub open_doc: bool,
+
+    /// Optional paths or metadata defining external dependencies where `rust-analyzer`
+    /// should crawl looking for structural definitions.
     pub deps: Option<String>,
+
+    /// When `true`, extracts and prints raw signature implementations or sample usage snippets.
     pub snippet: bool,
+
+    /// When `true`, formats the matched results into a pretty-printed JSON payload
+    /// and prints it to standard output.
     pub json: bool,
 }
 
 /// The result of parsing command-line arguments.
+///
+/// Expresses either a successfully built application context or an intentional early exit request
+/// such as information printouts.
 pub enum ParseResult {
+    /// Standard execution branch carrying a fully initialized configuration payload.
     Opts(Opts),
+
+    /// Represents an explicit request for utility instructions. Contains the formatted
+    /// string payload destined for standard error output before exiting the process.
     Help(String),
+
+    /// Represents an explicit request for application generation identifiers. Contains
+    /// the version string destined for standard output before exiting the process.
     Version(String),
 }
-
 /// Builds the CLI help text.
+#[must_use]
 pub fn usage(bin: &str) -> String {
     let mut s = String::new();
     let _ = writeln!(
@@ -69,7 +111,26 @@ pub fn usage(bin: &str) -> String {
     s
 }
 
-/// Parses command-line arguments, returning a [`ParseResult`] instead of calling `process::exit`.
+/// Parses the environment command-line arguments into a structured [`ParseResult`].
+///
+/// This function manually iterates over [`std::env::args`], resolving the executable's
+/// binary name dynamically. It enforces positional priorities (e.g., `<type_name>` must precede
+/// optional `<filter>`) and validates incompatible flag pairings.
+///
+/// # Layout Rules & Semantics
+///
+/// * **Early Returns:** Global meta-flags like `-h`/`--help` or `-V`/`--version` instantly
+///   intercept evaluation and return a pre-baked variant.
+/// * **Muting Overrides:** If `--interactive` is enabled, any trailing text filter argument
+///   is explicitly dropped (`filter = None`).
+///
+/// # Errors
+///
+/// Returns an `Err(String)` containing utility descriptions if:
+/// * An unexpected flag or a third/subsequent unflagged positional argument is supplied.
+/// * Sub-commands demanding parameter arguments (like `--gd` or `--deps`) run out of argument tokens.
+/// * Mutually exclusive or poorly anchored flag arrangements are passed (e.g., using `--open` or
+///   `--open-doc` without also specifying a targeting `--gd` method, or invoking both simultaneously).
 pub fn parse_args() -> Result<ParseResult, String> {
     let bin = std::env::current_exe()
         .ok()

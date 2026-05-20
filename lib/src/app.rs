@@ -1,10 +1,22 @@
+use crate::analyzer;
 use crate::ui::{self, Opts};
 use owo_colors::OwoColorize;
-use rust_meth::analyzer;
 use std::process;
 use std::time::Instant;
 
 /// The primary entry point for the application logic.
+///
+/// This function coordinates the entire lifecycle of the tool: parsing arguments,
+/// locating `rust-analyzer`, handling specialized execution paths like "go-to-definition",
+/// querying for methods, and dispatching to either interactive UI or standard rendering modes.
+///
+/// # Errors
+///
+/// Returns an `Err` containing a descriptive message if:
+/// * CLI arguments fail to parse.
+/// * The `rust-analyzer` binary cannot be located on the system.
+/// * A requested definition or method query fails or returns no results.
+/// * Rendering or writing JSON output encounters an unrecoverable serialization error.
 pub fn run() -> Result<(), String> {
     let opts = parse_or_exit()?;
     let ra_path = analyzer::find_rust_analyzer().map_err(|e| e.to_string())?;
@@ -23,6 +35,21 @@ pub fn run() -> Result<(), String> {
     render_methods(&opts, &matched)
 }
 
+/// Parses command-line arguments using the UI configuration module.
+///
+/// If the arguments match standard configuration parameters, it extracts and returns `Opts`.
+/// If the arguments contain explicit user requests for help or version information, this
+/// function handles printing that metadata directly to standard output or standard error
+/// and terminates the active process.
+///
+/// # Errors
+///
+/// Returns an `Err` if the command-line arguments are malformed or missing required keys.
+///
+/// # Panics
+///
+/// **Process Exit:** This function will directly terminate the current process with an exit
+/// code of `0` if the user requests `--help` or `--version`.
 fn parse_or_exit() -> Result<Opts, String> {
     match ui::parse_args()? {
         ui::ParseResult::Opts(opts) => Ok(opts),
@@ -37,6 +64,21 @@ fn parse_or_exit() -> Result<Opts, String> {
     }
 }
 
+/// Evaluates whether the application is running in "go-to-definition" mode and executes it.
+///
+/// If `opts.goto_def` is populated, this function intercepts the execution flow to trace down
+/// where a specific method is defined using `rust-analyzer`. It handles rendering progress animations
+/// and optionally opening the file location in an external text editor or browser documentation.
+///
+/// # Returns
+///
+/// * `Ok(true)` if definition mode was active and processed successfully.
+/// * `Ok(false)` if definition mode was not requested, indicating the caller should continue execution.
+///
+/// # Errors
+///
+/// Returns an `Err` if the definition query fails, or if a requested file/browser-open operation
+/// fails via the operating system host hook.
 fn handle_definition_mode(opts: &Opts, ra_path: &std::path::Path) -> Result<bool, String> {
     let Some(method_name) = &opts.goto_def else {
         return Ok(false);
@@ -80,6 +122,15 @@ fn handle_definition_mode(opts: &Opts, ra_path: &std::path::Path) -> Result<bool
     }
 }
 
+/// Dispatches a query to `rust-analyzer` to parse and collect all methods belonging to a target type.
+///
+/// Implements a terminal spinner animation to indicate indexing latency and logs performance metrics
+/// to standard output upon successful extraction.
+///
+/// # Errors
+///
+/// Returns an `Err` containing the underlying analysis layer failure if parsing or background
+/// indexing crashes.
 fn query_methods_with_spinner(
     opts: &Opts,
     ra_path: &std::path::Path,
@@ -104,6 +155,12 @@ fn query_methods_with_spinner(
     }
 }
 
+/// Filters a slice of methods using user-provided query patterns.
+///
+/// # Errors
+///
+/// Returns a descriptive `Err` if the filtering pass yields zero matches, helping prevent
+/// confusing blank outputs in non-interactive pipeline contexts.
 fn filter_or_err<'a>(
     opts: &Opts,
     methods: &'a [analyzer::Method],
@@ -121,6 +178,16 @@ fn filter_or_err<'a>(
     Ok(matched)
 }
 
+/// Handles formatting and rendering the filtered method set to standard output.
+///
+/// Supports three discrete visualization variants derived from application flags:
+/// 1. **JSON:** Serializes matches into pretty-printed structured payloads.
+/// 2. **Snippets:** Loops over and renders code blocks or implementation footprints.
+/// 3. **Tabular/Standard:** Computes target terminal alignment margins and prints colorized output summaries.
+///
+/// # Errors
+///
+/// Returns an `Err` if JSON payload serialization breaks down due to systemic memory allocation or internal typing faults.
 fn render_methods(opts: &Opts, matched: &[&analyzer::Method]) -> Result<(), String> {
     if opts.json {
         let out = serde_json::to_string_pretty(&matched).map_err(|e| e.to_string())?;
@@ -152,6 +219,7 @@ fn render_methods(opts: &Opts, matched: &[&analyzer::Method]) -> Result<(), Stri
     //     Ok(())
 }
 
+/// Prints a styled contextual header to standard output matching current filtering settings.
 fn print_methods_header(opts: &Opts) {
     let bin = opts.bin.as_str().dimmed().to_string();
     let type_name = format!("`{}`", opts.type_name).bold().cyan().to_string();

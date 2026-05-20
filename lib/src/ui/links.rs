@@ -4,7 +4,7 @@
 //! them in the system browser or preferred editor.
 use std::process::Command;
 
-use rust_meth::analyzer;
+use crate::analyzer;
 
 /// Opens a definition in the user's preferred editor (`$EDITOR`, falling back to `$VISUAL`).
 ///
@@ -103,6 +103,7 @@ pub fn open_in_browser(url: &str) -> Result<(), String> {
 /// let url = build_doc_url("Option", "unwrap", &def);
 /// assert_eq!(url, "https://doc.rust-lang.org/std/option/enum.Option.html#method.unwrap");
 /// ```
+#[must_use]
 pub fn build_doc_url(type_name: &str, method_name: &str, def: &analyzer::Definition) -> String {
     let bare_type = type_name.split('<').next().unwrap_or(type_name);
     let type_lower = bare_type.to_lowercase();
@@ -343,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_primitive() {
-        let def = rust_meth::analyzer::Definition {
+        let def = analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/num/mod.rs"
                 .to_string(),
             path: "library/core/src/num/mod.rs".to_string(),
@@ -359,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_string() {
-        let def = rust_meth::analyzer::Definition {
+        let def = analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/string.rs"
                 .to_string(),
             path: "library/alloc/src/string.rs".to_string(),
@@ -375,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_stdlib_option() {
-        let def = rust_meth::analyzer::Definition {
+        let def = analyzer::Definition {
             full_path: "/rustup/toolchains/stable/lib/rustlib/src/rust/library/core/src/option.rs"
                 .to_string(),
             path: "library/core/src/option.rs".to_string(),
@@ -391,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_third_party() {
-        let def = rust_meth::analyzer::Definition {
+        let def = analyzer::Definition {
             full_path:
                 "/home/user/.cargo/registry/src/index.crates.io-xxx/serde-1.0.197/src/lib.rs"
                     .to_string(),
@@ -408,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_build_doc_url_generic_type() {
-        let def = rust_meth::analyzer::Definition {
+        let def = analyzer::Definition {
             full_path:
                 "/rustup/toolchains/stable/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs"
                     .to_string(),

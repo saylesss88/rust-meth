@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use rust_meth::{
+use rust_meth_lib::{
     LspTransport, Probe,
     analyzer::{parse_definition, parse_methods},
 };

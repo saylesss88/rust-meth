@@ -1,45 +1,7 @@
-[package]
-name = "rust-meth"
-version = "0.2.1"                                                                                                                                                                      # NOTE: remember to update the CHANGELOG.md & add a tag before publishing
-edition = "2024"
-description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition into standard library source code."
-license = "Apache-2.0"
-homepage = "https://github.com/saylesss88/rust-meth"
-repository = "https://github.com/saylesss88/rust-meth"
-documentation = "https://docs.rs/rust-meth"
-readme = "README.md"
-keywords = ["rust-analyzer", "lsp", "methods", "cli", "introspection"]
-categories = ["command-line-utilities", "development-tools"]
-exclude = [".github", "*.gif", "*.png", "tests/", "benches/", "assets/"]
+[workspace]
+members = ["lib", "cli"]
+default-members = ["lib", "cli"]
 resolver = "3"
-
-[[bin]]
-name = "rust-meth"
-path = "src/main.rs"
-
-[lib]
-name = "rust_meth"
-path = "src/lib.rs"
-
-[dependencies]
-anyhow = {version = "1.0.102", default-features = false}
-dialoguer = {version = "0.12", features = [
-	"fuzzy-select",
-], default-features = false}
-fuzzy-matcher = "0.3.7"
-indicatif = {version = "0.18.4", default-features = false}
-owo-colors = "4.3.0"
-serde = {version = "1.0.228", default-features = false, features = [
-	"serde_derive",
-]}
-serde_json = "1.0.149"
-
-[dev-dependencies]
-criterion = {version = "0.8.2", default-features = false}
-
-[[bench]]
-name = "benchmarks"
-harness = false
 
 [profile.dev]
 opt-level = 1
@@ -51,19 +13,3 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
-
-[lints.rust]
-unsafe_code = "forbid"
-future_incompatible = {level = "warn", priority = -1}
-nonstandard_style = {level = "warn", priority = -1}
-rust_2018_idioms = {level = "warn", priority = -1}
-
-[lints.rustdoc]
-all = "warn"
-
-[lints.clippy]
-all = {level = "warn", priority = -1}
-pedantic = {level = "warn", priority = -1}
-todo = "warn"
-dbg_macro = "warn"
-unwrap_used = "warn"

@@ -345,6 +345,14 @@ name = "rust-meth"
 version = "0.2.1"
 dependencies = [
  "anyhow",
+ "rust-meth-lib",
+]
+
+[[package]]
+name = "rust-meth-lib"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
  "criterion",
  "dialoguer",
  "fuzzy-matcher",

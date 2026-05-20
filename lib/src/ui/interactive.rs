@@ -2,11 +2,21 @@ use dialoguer::{FuzzySelect, theme::ColorfulTheme};
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 
-use rust_meth::analyzer;
+use crate::analyzer;
 
 use super::{args::Opts, display::print_method};
 
-/// Displays a fuzzy-searchable list in the terminal using `dialoguer`.
+/// Displays an interactive, fuzzy-searchable list in the terminal using `dialoguer`.
+///
+/// This block brings up an alternate interactive view loop directly on the standard streams.
+/// If the user makes a choice, the selected method's details are printed to standard output.
+/// If the user cancels the prompt (e.g., via hitting `Esc`), the function returns cleanly
+/// without throwing an error or printing details.
+///
+/// # Errors
+///
+/// Returns an `Err` if the underlying terminal rendering environment fails to initialize,
+/// or if capturing standard input from the host terminal encounters an I/O fault.
 pub fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), String> {
     let items: Vec<&str> = methods.iter().map(|m| m.name.as_str()).collect();
 
@@ -23,7 +33,15 @@ pub fn run_interactive(opts: &Opts, methods: &[analyzer::Method]) -> Result<(), 
     Ok(())
 }
 
-/// Applies fuzzy matching to the list of methods.
+/// Applies fuzzy matching scores to a list of methods using a `SkimMatcherV2` engine.
+///
+/// If a filter pattern is provided, this function evaluates method names against the pattern,
+/// discards non-matching instances, and returns elements sorted descending by their structural
+/// match confidence score (highest quality matches first).
+///
+/// If `filter` is `None`, it skips the scoring engine completely and returns references to
+/// all provided input methods in their original sequential order.
+#[must_use]
 pub fn filter_methods<'a>(
     methods: &'a [analyzer::Method],
     filter: Option<&str>,
@@ -46,7 +64,7 @@ pub fn filter_methods<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_meth::analyzer::Method;
+    use analyzer::Method;
 
     fn make_method(name: &str) -> Method {
         Method {
