@@ -106,14 +106,6 @@ impl Probe {
             None
         }
     }
-    // fn infer_dep(type_name: &str) -> Option<String> {
-    //     let crate_name = type_name.split("::").next()?;
-    //     if crate_name.chars().next()?.is_ascii_lowercase() {
-    //         Some(format!(r#"{crate_name} = "*""#))
-    //     } else {
-    //         None
-    //     }
-    // }
     /// Creates a probe file for go-to-definition with custom dependencies.
     ///
     /// # Errors
