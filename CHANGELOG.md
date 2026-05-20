@@ -12,12 +12,21 @@ and this project adheres to
 
 ### Added
 
+- Colorized output
+- `owo_colors` as a dependency
+- Bench for new function `fn infer_dep`
+- Infer dependency from type when `--deps` is omitted
+- Demo `.gif` videos
 - Dependency inference from type path: `rust-meth 'serde_json::Value'` now works
   without `--deps`, resolving the crate name from the leading path segment at
   the latest version.
 - Create an ARCHITECTURE.md
 
 ### Fixed
+
+- Failing doc test
+
+- Exclude `assets/` dir
 
 - Change license to Apache-2.0 over MIT OR Apache-2.0 for simplicity
 
