@@ -96,6 +96,9 @@ impl Probe {
     /// assert_eq!(infer_dep("HashMap<K, V>"),     None);
     /// ```
     fn infer_dep(type_name: &str) -> Option<String> {
+        if !type_name.contains("::") {
+            return None; // primitives, String, Vec<u8>, etc. — never need an inferred dep
+        }
         let crate_name = type_name.split("::").next()?;
         if crate_name.chars().next()?.is_ascii_lowercase() {
             Some(format!(r#"{crate_name} = "*""#))
@@ -103,6 +106,14 @@ impl Probe {
             None
         }
     }
+    // fn infer_dep(type_name: &str) -> Option<String> {
+    //     let crate_name = type_name.split("::").next()?;
+    //     if crate_name.chars().next()?.is_ascii_lowercase() {
+    //         Some(format!(r#"{crate_name} = "*""#))
+    //     } else {
+    //         None
+    //     }
+    // }
     /// Creates a probe file for go-to-definition with custom dependencies.
     ///
     /// # Errors
