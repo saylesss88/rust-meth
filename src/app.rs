@@ -1,4 +1,5 @@
 use crate::ui::{self, Opts};
+use owo_colors::OwoColorize;
 use rust_meth::analyzer;
 use std::process;
 use std::time::Instant;
@@ -141,16 +142,27 @@ fn render_methods(opts: &Opts, matched: &[&analyzer::Method]) -> Result<(), Stri
         ui::print_method(m, name_width, opts.show_doc);
     }
 
-    println!("\n{} method(s)", matched.len());
+    println!(
+        "\n{} {}",
+        matched.len().to_string().bold().yellow(),
+        "method(s)".dimmed()
+    );
     Ok(())
+    // println!("\n{} method(s)", matched.len());
+    //     Ok(())
 }
 
 fn print_methods_header(opts: &Opts) {
+    let bin = opts.bin.as_str().dimmed().to_string();
+    let type_name = format!("`{}`", opts.type_name).bold().cyan().to_string();
+
     match opts.filter.as_deref() {
         Some(pat) => println!(
-            "\n{}: methods on `{}` matching {pat:?}\n",
-            opts.bin, opts.type_name
+            "\n{}: methods on {} matching {}\n",
+            bin,
+            type_name,
+            format!("{pat:?}").yellow()
         ),
-        None => println!("\n{}: methods on `{}`\n", opts.bin, opts.type_name),
+        None => println!("\n{bin}: methods on {type_name}\n"),
     }
 }

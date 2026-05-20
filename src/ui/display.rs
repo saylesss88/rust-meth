@@ -1,17 +1,29 @@
+use owo_colors::OwoColorize;
 use rust_meth::analyzer;
 
 /// Formats and prints a single method to stdout.
 pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
+    let padded_name = if name_width > 0 {
+        format!("{:<name_width$}", m.name)
+    } else {
+        m.name.clone()
+    };
+
+    let styled_name = padded_name.bold().green().to_string();
+
     match &m.detail {
-        Some(detail) if name_width > 0 => println!("  {:<name_width$}  {detail}", m.name),
-        Some(detail) => println!("  {}  {detail}", m.name),
-        None => println!("  {}", m.name),
+        Some(detail) => println!("  {}  {}", styled_name, detail.dimmed()),
+        None => println!("  {styled_name}"),
     }
 
     if show_doc && let Some(doc) = &m.documentation {
         println!();
         for line in doc.lines().take(6) {
-            println!("    {line}");
+            println!("    {} {}", "│".dimmed(), line.dimmed());
+        }
+
+        if doc.lines().count() > 6 {
+            println!("    {} {}", "│".dimmed(), "…".dimmed());
         }
 
         if name_width > 0 {
@@ -19,7 +31,6 @@ pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
         }
     }
 }
-
 /// Formats a method signature into a call snippet.
 ///
 /// For example, given a method with
