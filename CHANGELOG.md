@@ -8,6 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+# [0.2.1] - 2026-05-20
+
+### Added
+
+- Add custom error handling with `thiserror`
+- Refactor into a workspace 
+
+### Fixed
+
 # [0.2.0] - 2026-05-18
 
 ### Added
