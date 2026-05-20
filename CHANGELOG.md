@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+# [0.2.2] - 2026-05-20
+
+### Added
+
+### Fixed
+
+- Version flag giving the version of the lib after refactor
+
+- Bug in probe: infer_deps was triggering for standard rust-meth u8 commands
+
 # [0.2.1] - 2026-05-20
 
 ### Added
