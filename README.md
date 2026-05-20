@@ -28,6 +28,7 @@ Think of it as "method completion for any Rust type, anywhere in your terminal."
 - Open that definition directly in your `$EDITOR` with `--open`
 - Open official documentation directly in your browser with `--open-doc`
 - Query 3rd party crate types with `--deps`
+- Colorized output
 
 ## Why it's useful
 
