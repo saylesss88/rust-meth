@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 
+use crate::error::{Result, RustMethError};
 use serde_json::Value;
 
 use crate::LspTransport;
@@ -57,7 +58,7 @@ fn rustup_rust_analyzer() -> Option<PathBuf> {
 /// Returns an error if `rust-analyzer` cannot be found via either mechanism,
 /// providing user-friendly instructions on how to install it.
 ///
-pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
+pub fn find_rust_analyzer() -> Result<PathBuf> {
     if let Some(path) = RA_PATH_CACHE.get() {
         return Ok(path.clone());
     }
@@ -66,19 +67,17 @@ pub fn find_rust_analyzer() -> anyhow::Result<PathBuf> {
     } else if let Some(path) = rustup_rust_analyzer() {
         path
     } else {
-        anyhow::bail!(
-            "rust-analyzer not found.\n\
-             Install it with: rustup component add rust-analyzer\n\
-             or ensure it is on your PATH."
-        )
+        return Err(RustMethError::RustAnalyzerNotFound);
     };
     Ok(RA_PATH_CACHE.get_or_init(|| path).clone())
 }
 
 #[cfg(unix)]
-fn which(name: &str) -> anyhow::Result<std::path::PathBuf> {
+fn which(name: &str) -> Result<std::path::PathBuf> {
     let out = Command::new("which").arg(name).output()?;
-    anyhow::ensure!(out.status.success(), "not found");
+    if !out.status.success() {
+        return Err(RustMethError::RustAnalyzerNotFound);
+    }
     let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
     Ok(s.into())
 }
@@ -104,7 +103,7 @@ pub fn query_methods(
     type_name: &str,
     ra_path: &std::path::Path,
     deps: Option<&str>,
-) -> anyhow::Result<Vec<Method>> {
+) -> Result<Vec<Method>> {
     let probe = Probe::new_with_deps(type_name, deps)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
@@ -188,7 +187,7 @@ pub fn query_methods(
 ///   - experimental/serverStatus with quiescent == true
 ///   - workspace/diagnostic/refresh
 ///   - textDocument/publishDiagnostics
-fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
+fn wait_for_indexing(lsp: &mut LspTransport) -> Result<()> {
     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
     let start = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(10); // Hard timeout
@@ -233,12 +232,12 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> anyhow::Result<()> {
 ///
 /// Returns an error if the provided JSON response does not conform to the expected LSP
 /// completion shape (missing both a top-level `result` array and an `items` sub-array).
-pub fn parse_methods(response: &Value) -> anyhow::Result<Vec<Method>> {
+pub fn parse_methods(response: &Value) -> Result<Vec<Method>> {
     let result = &response["result"];
     let items: &[Value] = match result {
         Value::Array(arr) => arr.as_slice(),
         obj if obj["items"].is_array() => obj["items"].as_array().map_or(&[], Vec::as_slice),
-        _ => anyhow::bail!("Unexpected completion response shape: {response}"),
+        _ => return Err(RustMethError::UnexpectedResponseShape(response.to_string())),
     };
 
     let mut methods: Vec<Method> = Vec::with_capacity(items.len() / 2);

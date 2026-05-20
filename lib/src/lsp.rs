@@ -5,6 +5,8 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
 
+use crate::error::{Result, RustMethError};
+
 use serde_json::{Value, json};
 
 /// A synchronous transport layer for communicating with a Language Server Protocol (LSP) server.
@@ -51,7 +53,7 @@ impl LspTransport {
     /// - The stream ends before a valid `Content-Length` header is parsed.
     /// - The header value cannot be parsed into a valid size.
     /// - The message body cannot be parsed as valid JSON.
-    pub fn recv(&mut self) -> anyhow::Result<Value> {
+    pub fn recv(&mut self) -> Result<Value> {
         // Read headers until blank line.
         let mut content_length: Option<usize> = None;
         loop {
@@ -66,7 +68,7 @@ impl LspTransport {
             }
         }
 
-        let length = content_length.ok_or_else(|| anyhow::anyhow!("No Content-Length header"))?;
+        let length = content_length.ok_or(RustMethError::NoContentLength)?;
         let mut body = vec![0u8; length];
         self.reader.read_exact(&mut body)?;
         Ok(serde_json::from_slice(&body)?)
@@ -83,14 +85,14 @@ impl LspTransport {
         &mut self,
         limit: usize,
         mut predicate: impl FnMut(&Value) -> Option<T>,
-    ) -> anyhow::Result<T> {
+    ) -> Result<T> {
         for _ in 0..limit {
             let msg = self.recv()?;
             if let Some(result) = predicate(&msg) {
                 return Ok(result);
             }
         }
-        anyhow::bail!("recv_until: exhausted {limit} messages without a match")
+        Err(RustMethError::RecvExhausted { limit })
     }
 
     // ── Convenience constructors for common messages ─────────────────────────

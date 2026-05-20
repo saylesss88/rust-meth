@@ -7,7 +7,7 @@
 [![Documentation](https://docs.rs/rust-meth/badge.svg)](https://docs.rs/rust-meth)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Discover the methods available on any Rust type — with fuzzy filtering, inline
+Discover the methods available on any Rust type. With fuzzy filtering, inline
 docs, interactive selection, and go-to-definition into the standard library
 source. Powered by `rust-analyzer`.
 
@@ -20,6 +20,17 @@ source. Powered by `rust-analyzer`.
 > [!IMPORTANT]
 > - **Standard Toolchain:** Fully supported (`std`, `core`, and `alloc`).
 > - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).
+
+
+## Workspace Structure
+
+`rust-meth` is a Cargo workspace. The CLI (`rust-meth`) is the user-facing binary;
+the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library crate.
+
+| Crate | Path | Description |
+|-------|------|-------------|
+| `rust-meth` | `cli/` | CLI binary — argument parsing, output, interactive UI |
+| `rust-meth-lib` | `lib/` | Library — rust-analyzer integration, type resolution, method lookup |
 
 ## Highlights
 
