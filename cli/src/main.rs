@@ -6,7 +6,7 @@ use rust_meth_lib::app;
 use std::process;
 
 fn main() {
-    if let Err(err) = app::run() {
+    if let Err(err) = app::run(env!("CARGO_PKG_VERSION")) {
         eprintln!("error: {err}");
         process::exit(1);
     }

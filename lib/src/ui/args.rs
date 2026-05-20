@@ -131,7 +131,7 @@ pub fn usage(bin: &str) -> String {
 /// * Sub-commands demanding parameter arguments (like `--gd` or `--deps`) run out of argument tokens.
 /// * Mutually exclusive or poorly anchored flag arrangements are passed (e.g., using `--open` or
 ///   `--open-doc` without also specifying a targeting `--gd` method, or invoking both simultaneously).
-pub fn parse_args() -> Result<ParseResult, String> {
+pub fn parse_args(version: &str) -> Result<ParseResult, String> {
     let bin = std::env::current_exe()
         .ok()
         .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -148,11 +148,14 @@ pub fn parse_args() -> Result<ParseResult, String> {
     }
 
     if matches!(first.as_str(), "--version" | "-V") {
-        return Ok(ParseResult::Version(format!(
-            "{bin} {}",
-            env!("CARGO_PKG_VERSION")
-        )));
+        return Ok(ParseResult::Version(format!("{bin} {version}")));
     }
+    // if matches!(first.as_str(), "--version" | "-V") {
+    //     return Ok(ParseResult::Version(format!(
+    //         "{bin} {}",
+    //         env!("CARGO_PKG_VERSION")
+    //     )));
+    // }
 
     if first.starts_with('-') {
         return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));

@@ -17,8 +17,8 @@ use std::time::Instant;
 /// * The `rust-analyzer` binary cannot be located on the system.
 /// * A requested definition or method query fails or returns no results.
 /// * Rendering or writing JSON output encounters an unrecoverable serialization error.
-pub fn run() -> Result<(), String> {
-    let opts = parse_or_exit()?;
+pub fn run(version: &str) -> Result<(), String> {
+    let opts = parse_or_exit(version)?;
     let ra_path = analyzer::find_rust_analyzer().map_err(|e| e.to_string())?;
 
     if handle_definition_mode(&opts, &ra_path)? {
@@ -50,8 +50,8 @@ pub fn run() -> Result<(), String> {
 ///
 /// **Process Exit:** This function will directly terminate the current process with an exit
 /// code of `0` if the user requests `--help` or `--version`.
-fn parse_or_exit() -> Result<Opts, String> {
-    match ui::parse_args()? {
+fn parse_or_exit(version: &str) -> Result<Opts, String> {
+    match ui::parse_args(version)? {
         ui::ParseResult::Opts(opts) => Ok(opts),
         ui::ParseResult::Help(text) => {
             eprint!("{text}");
