@@ -19,7 +19,6 @@ path = "src/main.rs"
 
 [dependencies]
 rust-meth-lib = {workspace = true}
-anyhow = {version = "1.0.102", default-features = false}
 indicatif = {version = "0.18.4", default-features = false}
 owo-colors = "4.3.0"
 dialoguer = {version = "0.12", features = [
