@@ -12,12 +12,28 @@ and this project adheres to
 
 ### Added
 
+- `--explain <method>` to print the full documentation directly in the terminal.
+
+Example:
+
+```sh
+rust-meth 'Result<u8, String>' --explain unwrap_unchecked
+```
+
+- Add `--browser` to open the official documentation for said method.
+
+Example:
+
+```sh
+rust-meth 'Result<u8, String>' --explain unwrap_unchecked --browser
+```
+
 ### Fixed
 
 - Unidiomatic patterns
 
-- Separate concerns after workspace refactor, move all CLI
-related files to cli where they belong.
+- Separate concerns after workspace refactor, move all CLI related files to cli
+  where they belong.
 
 # [0.3.0]
 
@@ -40,7 +56,7 @@ related files to cli where they belong.
 ### Added
 
 - Add custom error handling with `thiserror`
-- Refactor into a workspace 
+- Refactor into a workspace
 
 ### Fixed
 
