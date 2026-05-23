@@ -8,6 +8,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+# [0.4.0]
+
+### Added
+
+### Fixed
+
+- Unidiomatic patterns
+
+- Separate concerns after workspace refactor, move all CLI
+related files to cli where they belong.
+
+# [0.3.0]
+
+### Added
+
+### Fixed
+
 # [0.2.2] - 2026-05-20
 
 ### Added
