@@ -3,8 +3,24 @@ members = ["lib", "cli"]
 default-members = ["lib", "cli"]
 resolver = "3"
 
+[workspace.package]
+version = "0.4.0"
+edition = "2024"
+authors = ["T. Sawyer <saylesss87@proton.me>"]
+license = "Apache-2.0"
+repository = "https://github.com/saylesss88/rust-meth"
+homepage = "https://github.com/saylesss88/rust-meth"
+description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition."
+readme = "README.md"
+documentation = "https://docs.rs/rust-meth"
+keywords = ["rust-analyzer", "lsp", "methods", "cli", "introspection"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [".github", "*.gif", "*.png", "tests/", "benches/", "assets/"]
+
 [workspace.dependencies]
 rust-meth-lib = {path = "lib", version = "0.2.0"}
+serde_json = "1.0.149"
+
 [profile.dev]
 opt-level = 1
 debug = true
@@ -15,3 +31,20 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+future_incompatible = {level = "warn", priority = -1}
+nonstandard_style = {level = "warn", priority = -1}
+rust_2018_idioms = {level = "warn", priority = -1}
+
+[workspace.lints.rustdoc]
+all = "warn"
+missing_crate_level_docs = "warn"
+
+[workspace.lints.clippy]
+all = {level = "warn", priority = -1}
+pedantic = {level = "warn", priority = -1}
+todo = "warn"
+dbg_macro = "warn"
+unwrap_used = "warn"

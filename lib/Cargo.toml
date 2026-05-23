@@ -1,15 +1,15 @@
 [package]
 name = "rust-meth-lib"
-version = "0.2.0"
-edition = "2024"
-authors = ["T. Sawyer <saylesss87@proton.me>"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
 description = "Core library for rust-meth: discover methods on Rust types via rust-analyzer."
-license = "Apache-2.0"
-homepage = "https://github.com/saylesss88/rust-meth"
-repository = "https://github.com/saylesss88/rust-meth"
 documentation = "https://docs.rs/rust-meth-lib"
 readme = "README.md"
-keywords = ["rust-analyzer", "lsp", "methods", "introspection"]
 categories = ["development-tools"]
 
 [lib]
@@ -21,7 +21,7 @@ doctest = false
 serde = {version = "1.0.228", default-features = false, features = [
 	"serde_derive",
 ]}
-serde_json = "1.0.149"
+serde_json = {workspace = true}
 thiserror = "2.0.18"
 
 [dev-dependencies]
@@ -31,18 +31,5 @@ criterion = {version = "0.8.2", default-features = false}
 name = "benchmarks"
 harness = false
 
-[lints.rust]
-unsafe_code = "forbid"
-future_incompatible = {level = "warn", priority = -1}
-nonstandard_style = {level = "warn", priority = -1}
-rust_2018_idioms = {level = "warn", priority = -1}
-
-[lints.rustdoc]
-all = "warn"
-
-[lints.clippy]
-all = {level = "warn", priority = -1}
-pedantic = {level = "warn", priority = -1}
-todo = "warn"
-dbg_macro = "warn"
-unwrap_used = "warn"
+[lints]
+workspace = true

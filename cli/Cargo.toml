@@ -1,17 +1,18 @@
 [package]
 name = "rust-meth"
-version = "0.4.0"
-edition = "2024"
-authors = ["T. Sawyer <saylesss87@proton.me>"]
-description = "Discover methods available on any Rust type with fuzzy filtering, inline documentation, interactive selection, and go-to-definition."
-license = "Apache-2.0"
-homepage = "https://github.com/saylesss88/rust-meth"
-repository = "https://github.com/saylesss88/rust-meth"
-documentation = "https://docs.rs/rust-meth"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+keywords.workspace = true
 readme = "README.md"
-keywords = ["rust-analyzer", "lsp", "methods", "cli", "introspection"]
-categories = ["command-line-utilities", "development-tools"]
-exclude = [".github", "*.gif", "*.png", "tests/", "benches/", "assets/"]
+
+categories.workspace = true
+exclude.workspace = true
 
 [[bin]]
 name = "rust-meth"
@@ -25,14 +26,16 @@ dialoguer = {version = "0.12", features = [
 	"fuzzy-select",
 ], default-features = false}
 fuzzy-matcher = "0.3.7"
-serde_json = "1.0.149"
+serde_json = {workspace = true}
 
-[lints.rust]
-unsafe_code = "forbid"
-future_incompatible = {level = "warn", priority = -1}
-nonstandard_style = {level = "warn", priority = -1}
-rust_2018_idioms = {level = "warn", priority = -1}
+[lints]
+workspace = true
+# [lints.rust]
+# unsafe_code = "forbid"
+# future_incompatible = {level = "warn", priority = -1}
+# nonstandard_style = {level = "warn", priority = -1}
+# rust_2018_idioms = {level = "warn", priority = -1}
 
-[lints.clippy]
-all = {level = "warn", priority = -1}
-pedantic = {level = "warn", priority = -1}
+# [lints.clippy]
+# all = {level = "warn", priority = -1}
+# pedantic = {level = "warn", priority = -1}
