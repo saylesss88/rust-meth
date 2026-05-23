@@ -6,11 +6,11 @@
 
 /// Orchestrates the full LSP session
 pub mod analyzer;
-/// Primary entry point for application logic
 /// Custom errors with `thiserror`
 pub mod error;
-pub(crate) mod lsp;
-pub(crate) mod probe;
+/// Minimal LSP transport
+pub mod lsp;
+pub mod probe;
 
 pub use error::RustMethError;
 pub use lsp::LspTransport;

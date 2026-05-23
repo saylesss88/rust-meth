@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 use crate::error::{Result, RustMethError};
 use serde_json::Value;
 
-use crate::lsp::LspTransport;
+use crate::LspTransport;
 use crate::probe::Probe;
 
 /// LSP `CompletionItemKind` value corresponding to a Method.
