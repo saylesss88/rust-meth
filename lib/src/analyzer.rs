@@ -57,18 +57,16 @@ fn rustup_rust_analyzer() -> Option<PathBuf> {
 ///
 /// Returns an error if `rust-analyzer` cannot be found via either mechanism,
 /// providing user-friendly instructions on how to install it.
-///
 pub fn find_rust_analyzer() -> Result<PathBuf> {
     if let Some(path) = RA_PATH_CACHE.get() {
         return Ok(path.clone());
     }
-    let path = if let Ok(path) = which("rust-analyzer") {
-        path
-    } else if let Some(path) = rustup_rust_analyzer() {
-        path
-    } else {
-        return Err(RustMethError::RustAnalyzerNotFound);
-    };
+
+    let path = which("rust-analyzer")
+        .ok()
+        .or_else(rustup_rust_analyzer)
+        .ok_or(RustMethError::RustAnalyzerNotFound)?;
+
     Ok(RA_PATH_CACHE.get_or_init(|| path).clone())
 }
 
