@@ -10,7 +10,6 @@ documentation.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 readme = "README.md"
-
 categories.workspace = true
 exclude.workspace = true
 
@@ -30,12 +29,3 @@ serde_json = {workspace = true}
 
 [lints]
 workspace = true
-# [lints.rust]
-# unsafe_code = "forbid"
-# future_incompatible = {level = "warn", priority = -1}
-# nonstandard_style = {level = "warn", priority = -1}
-# rust_2018_idioms = {level = "warn", priority = -1}
-
-# [lints.clippy]
-# all = {level = "warn", priority = -1}
-# pedantic = {level = "warn", priority = -1}
