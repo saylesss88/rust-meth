@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 use crate::error::{Result, RustMethError};
 use serde_json::Value;
 
-use crate::LspTransport;
+use crate::lsp::LspTransport;
 use crate::probe::Probe;
 
 /// LSP `CompletionItemKind` value corresponding to a Method.
@@ -131,43 +131,16 @@ pub fn query_methods(
 
     // ── 5. completion — retry until RA returns items ──────────────────────────
     // RA may return isIncomplete+empty if it isn't fully ready yet.
-    let completion_response = {
-        let mut response = Value::Null;
-        for attempt in 1..=10u64 {
-            let req_id = attempt + 2;
-            lsp.send(&LspTransport::completion(
-                req_id,
-                &probe.src_uri(),
-                probe.dot_line,
-                probe.dot_col,
-            ))?;
-
-            let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
-
-            let has_items = msg["result"]["items"]
+    let completion_response = retry_lsp_request(
+        &mut lsp,
+        10,
+        |req_id| LspTransport::completion(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
+        |msg| {
+            msg["result"]["items"]
                 .as_array()
-                .is_some_and(|a| !a.is_empty());
-
-            if has_items {
-                response = msg;
-                break;
-            }
-
-            if attempt < 10 {
-                let delay = match attempt {
-                    1 => 50,  // 50ms - RA might be ready immediately
-                    2 => 100, // 100ms
-                    3 => 200, // 200ms
-                    _ => 300, // 300ms for later attempts
-                };
-                std::thread::sleep(std::time::Duration::from_millis(delay));
-            }
-            // if attempt < 10 {
-            //     std::thread::sleep(std::time::Duration::from_millis(500));
-            // }
-        }
-        response
-    };
+                .is_some_and(|a| !a.is_empty())
+        },
+    )?;
 
     // ── 6. shutdown / exit ────────────────────────────────────────────────────
     lsp.send(&LspTransport::shutdown(13))?;
@@ -280,6 +253,35 @@ pub struct Definition {
     pub line: u32,
 }
 
+fn retry_lsp_request<F, G>(
+    lsp: &mut LspTransport,
+    max_attempts: u64,
+    mut make_request: F,
+    mut is_success: G,
+) -> Result<Value>
+where
+    F: FnMut(u64) -> Value,   // takes req_id, returns the request to send
+    G: FnMut(&Value) -> bool, // returns true when response is good
+{
+    let mut result = Value::Null;
+    for attempt in 1..=max_attempts {
+        let req_id = attempt + 2;
+        lsp.send(&make_request(req_id))?;
+        let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
+        if is_success(&msg) {
+            result = msg;
+            break;
+        }
+        if attempt < max_attempts {
+            if std::env::var("RUST_METH_DEBUG").is_ok() {
+                eprintln!("(attempt {attempt}: not ready, retrying…)");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    }
+    Ok(result)
+}
+
 /// Queries `rust-analyzer` for the precise upstream source file declaration layout of a specific method.
 ///
 /// Under the hood, this sets up a mock environment containing an isolated invocation of your method,
@@ -294,7 +296,7 @@ pub fn query_definition(
     method_name: &str,
     ra_path: &std::path::Path,
     deps: Option<&str>,
-) -> anyhow::Result<Option<Definition>> {
+) -> Result<Option<Definition>> {
     let probe = Probe::for_definition_with_deps(type_name, method_name, deps)?;
 
     let mut child = Command::new(ra_path)
@@ -321,37 +323,16 @@ pub fn query_definition(
 
     // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
-    let response = {
-        let mut result = Value::Null;
-        for attempt in 1..=10u64 {
-            let req_id = attempt + 2;
-            lsp.send(&LspTransport::definition(
-                req_id,
-                &probe.src_uri(),
-                probe.dot_line,
-                probe.dot_col,
-            ))?;
-
-            let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
-
-            // -32801 = content modified, -32800 = request cancelled. Both mean retry.
+    let response = retry_lsp_request(
+        &mut lsp,
+        10,
+        |req_id| LspTransport::definition(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
+        |msg| {
             let is_error = msg["error"]["code"].as_i64().is_some();
             let is_null = msg["result"].is_null();
-
-            if !is_error && !is_null {
-                result = msg;
-                break;
-            }
-
-            if attempt < 10 {
-                if std::env::var("RUST_METH_DEBUG").is_ok() {
-                    eprintln!("(attempt {attempt}: not ready, retrying…)");
-                }
-                std::thread::sleep(std::time::Duration::from_millis(500));
-            }
-        }
-        result
-    };
+            !is_error && !is_null
+        },
+    )?;
 
     lsp.send(&LspTransport::shutdown(13))?;
     let _ = lsp.recv_until(10, |msg| (msg["id"] == 13).then_some(()));
