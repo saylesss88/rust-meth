@@ -81,3 +81,31 @@ fn parse_call_args(detail: &str) -> String {
         .collect::<Vec<_>>()
         .join(", ")
 }
+
+/// Prints the full documentation for a single method, untruncated.
+pub fn print_full_doc(m: &analyzer::Method) {
+    println!("\n {} {}", "method:".dimmed(), m.name.bold().green());
+
+    if let Some(detail) = &m.detail {
+        println!("  {} {}", "sig:".dimmed(), detail.dimmed());
+    }
+
+    println!();
+
+    match &m.documentation {
+        Some(doc) if !doc.trim().is_empty() => {
+            for line in doc.lines() {
+                println!("   {} {}", "|".dimmed(), line);
+            }
+        }
+        _ => {
+            println!(
+                "    {} {}",
+                "│".dimmed(),
+                "(no documentation available)".dimmed()
+            );
+        }
+    }
+
+    println!();
+}

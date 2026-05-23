@@ -43,6 +43,8 @@ the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library 
 - Open official documentation in your browser with `--open-doc`
 - Query 3rd party crate types with `--deps`
 - Colorized output, JSON output, and call snippets
+- Explain any method's full documentation with `--explain`
+
 
 ## Requirements
 
@@ -94,6 +96,7 @@ For full flag reference and detailed examples, see the sections below.
 - [Interactive picker](#interactive-picker)
 - [Go-to-definition](#go-to-definition)
 - [Open in browser](#open-in-browser)
+- [Explain a method](#explain-a-method)
 - [3rd party crates](#3rd-party-crates)
 - [Call snippets](#call-snippets)
 - [JSON output](#json-output)
@@ -193,6 +196,49 @@ tokio = { version = "1", features = ["full"] }'
 
 > [!NOTE]
 > First-time queries may take 5–10 seconds as `rust-analyzer` downloads and indexes dependencies.
+
+<a id="explain-a-method"></a>
+## Explain a method
+
+Pass `--explain <method>` to print the full documentation for a specific method
+directly in the terminal — no browser required:
+
+```sh
+rust-meth 'Result<u8, String>' --explain unwrap_unchecked
+rust-meth u8 --explain checked_add
+rust-meth 'Vec<u8>' --explain retain
+```
+
+Output includes the method signature and its complete rustdoc comment, untruncated:
+
+```
+  method: unwrap_unchecked
+  sig:    unsafe fn(self) -> T
+
+    │ Returns the contained `Ok` value, consuming the `self` value,
+    │ without checking that the value is not an `Err`.
+    │
+    │ # Safety
+    │
+    │ Calling this method on an `Err` value is undefined behavior.
+    │
+    │ # Examples
+    │ ...
+```
+
+Pass `--browser` to open the official documentation page instead:
+
+```sh
+rust-meth 'Result<u8, String>' --explain unwrap_unchecked --browser
+rust-meth u8 --explain checked_add --browser
+```
+
+> [!NOTE]
+> Unlike `--open-doc`, `--explain --browser` does not require `--gd` and skips
+> the definition lookup step, making it faster for quick doc lookups.
+
+---
+
 
 <a id="call-snippets"></a>
 ## Call snippets

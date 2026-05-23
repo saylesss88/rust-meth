@@ -45,6 +45,12 @@ pub struct Opts {
     /// When `true`, formats the matched results into a pretty-printed JSON payload
     /// and prints it to standard output.
     pub json: bool,
+
+    /// An optional method name to explain (print full docs for)
+    pub explain: Option<String>,
+
+    /// When `true` alongside `explain`, opens the method's full documentation in the browser.
+    pub browser: bool,
 }
 
 /// The result of parsing command-line arguments.
@@ -108,6 +114,14 @@ pub fn usage(bin: &str) -> String {
         s,
         "  {bin} 'tokio::net::TcpStream' --deps 'tokio = {{ version = \"1.0\", features = [\"net\"] }}'\n"
     );
+    let _ = writeln!(
+        s,
+        "  {bin} 'Result<u8,String>' --explain unwrap_unchecked   # print full docs\n"
+    );
+    let _ = writeln!(
+        s,
+        "  {bin} 'Result<u8,String>' --explain unwrap_unchecked --browser  # open in browser\n"
+    );
     s
 }
 
@@ -150,12 +164,6 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
     if matches!(first.as_str(), "--version" | "-V") {
         return Ok(ParseResult::Version(format!("{bin} {version}")));
     }
-    // if matches!(first.as_str(), "--version" | "-V") {
-    //     return Ok(ParseResult::Version(format!(
-    //         "{bin} {}",
-    //         env!("CARGO_PKG_VERSION")
-    //     )));
-    // }
 
     if first.starts_with('-') {
         return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));
@@ -171,6 +179,8 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
     let mut deps = None;
     let mut snippet = false;
     let mut json = false;
+    let mut explain = None;
+    let mut browser = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -192,6 +202,13 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
             }
             "--snippet" => snippet = true,
             "--json" => json = true,
+            "--explain" => {
+                let method = args
+                    .next()
+                    .ok_or_else(|| "--explain requires a method name".to_string())?;
+                explain = Some(method);
+            }
+            "--browser" => browser = true,
             _ if arg.starts_with('-') => {
                 return Err(format!("unexpected flag '{arg}'"));
             }
@@ -221,6 +238,10 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
         return Err("choose only one of --open or --open-doc".to_string());
     }
 
+    if browser && explain.is_none() {
+        return Err("--browser requires --explain <method>".to_string());
+    }
+
     Ok(ParseResult::Opts(Opts {
         bin,
         type_name,
@@ -233,5 +254,7 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
         deps,
         snippet,
         json,
+        explain,
+        browser,
     }))
 }
