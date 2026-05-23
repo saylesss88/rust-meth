@@ -118,12 +118,7 @@ fn my_wrapper() -> Result<()> {
 
 | Crate | Purpose |
 |-------|---------|
-| `anyhow` | Error handling |
 | `serde` / `serde_json` | LSP JSON-RPC serialization |
-| `fuzzy-matcher` | Fuzzy-filter and rank method results |
-| `dialoguer` | Interactive fuzzy selection |
-| `owo-colors` | Colorized terminal output |
-| `indicatif` | Progress spinner |
 | `thiserror` | Ergonomic custom error enum derivation |
 
 ## License
