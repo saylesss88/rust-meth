@@ -51,7 +51,6 @@ impl Probe {
     ///
     /// Returns an [`std::io::Error`] if creating the underlying probe project directory
     /// or writing its files fails.
-    #[allow(dead_code)]
     pub fn new(type_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, None, None)
     }
@@ -77,7 +76,6 @@ impl Probe {
     ///
     /// Returns an [`std::io::Error`] if the workspace initialization or file creation fails
     /// on disk.
-    #[allow(dead_code)]
     pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
         Self::create_probe(type_name, Some(method_name), None)
     }
