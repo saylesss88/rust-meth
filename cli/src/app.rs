@@ -1,6 +1,6 @@
-use crate::analyzer;
 use crate::ui::{self, Opts};
 use owo_colors::OwoColorize;
+use rust_meth_lib::analyzer;
 use std::process;
 use std::time::Instant;
 

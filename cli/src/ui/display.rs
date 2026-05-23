@@ -1,5 +1,5 @@
-use crate::analyzer;
 use owo_colors::OwoColorize;
+use rust_meth_lib::analyzer;
 
 /// Formats and prints a single method to stdout.
 pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {

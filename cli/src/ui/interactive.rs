@@ -2,7 +2,7 @@ use dialoguer::{FuzzySelect, theme::ColorfulTheme};
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 
-use crate::analyzer;
+use rust_meth_lib::analyzer;
 
 use super::{args::Opts, display::print_method};
 

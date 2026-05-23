@@ -345,7 +345,12 @@ name = "rust-meth"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "dialoguer",
+ "fuzzy-matcher",
+ "indicatif",
+ "owo-colors",
  "rust-meth-lib",
+ "serde_json",
 ]
 
 [[package]]
