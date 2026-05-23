@@ -215,8 +215,6 @@ fn render_methods(opts: &Opts, matched: &[&analyzer::Method]) -> Result<(), Stri
         "method(s)".dimmed()
     );
     Ok(())
-    // println!("\n{} method(s)", matched.len());
-    //     Ok(())
 }
 
 /// Prints a styled contextual header to standard output matching current filtering settings.
