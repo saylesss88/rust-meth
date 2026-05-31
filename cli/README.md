@@ -285,6 +285,10 @@ $ rust-meth 'Result<u8, String>' --explain unwrap_unchecked
   <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.png" width="600" alt="rustmeth syntax-highlighting">
 </p>
 
+Code inside ```rust fences is highlighted using the base16-ocean.dark theme via
+`syntext`. Plain output is used automatically when stdout is piped or `NO_COLOR`
+is set.
+
 ## License
 
 [Apache-2.0](https://github.com/saylesss88/rust-meth/blob/main/LICENSE)
