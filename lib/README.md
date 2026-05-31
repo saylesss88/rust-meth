@@ -39,7 +39,7 @@ rust-meth/
 
 ```toml
 [dependencies]
-rust-meth-lib = "0.2"
+rust-meth-lib = "0.2.1"
 ```
 
 ### Key Types
