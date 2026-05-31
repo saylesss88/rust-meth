@@ -1,5 +1,79 @@
 use owo_colors::OwoColorize;
 use rust_meth_lib::analyzer;
+use std::sync::OnceLock;
+use syntect::easy::HighlightLines;
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSet;
+use syntect::util::as_24_bit_terminal_escaped;
+
+// --- Syntax Highlighting setup ---
+struct Highlighter {
+    ps: SyntaxSet,
+    ts: ThemeSet,
+}
+
+static HIGHLIGHTER: OnceLock<Highlighter> = OnceLock::new();
+
+fn get_highlighter() -> &'static Highlighter {
+    HIGHLIGHTER.get_or_init(|| Highlighter {
+        ps: SyntaxSet::load_defaults_newlines(),
+        ts: ThemeSet::load_defaults(),
+    })
+}
+
+#[allow(clippy::doc_markdown)]
+/// Prints text, applying syntect syntax highlighting to ```rust blocks.
+fn print_doc_with_highlighting(doc: &str) {
+    // Fall back to plain output when piped or NO_COLOR is set
+    if !is_color_enabled() {
+        for line in doc.lines() {
+            println!("   {} {}", "|".dimmed(), line);
+        }
+        return;
+    }
+    let hl = get_highlighter();
+    let syntax = hl
+        .ps
+        .find_syntax_by_extension("rs")
+        .unwrap_or_else(|| hl.ps.find_syntax_plain_text());
+
+    let mut in_rust_block = false;
+    let mut highlighter: Option<HighlightLines<'_>> = None;
+
+    for line in doc.lines() {
+        if !in_rust_block {
+            if line.trim_start().starts_with("```rust") {
+                in_rust_block = true;
+                highlighter = Some(HighlightLines::new(
+                    syntax,
+                    &hl.ts.themes["base16-ocean.dark"],
+                ));
+                // Print the opening fence dimmed
+                println!("   {} {}", "|".dimmed(), "```rust".dimmed());
+            } else {
+                println!("   {} {}", "|".dimmed(), line);
+            }
+        } else if line.trim() == "```" {
+            // Closing fence
+            println!("   {} {}", "|".dimmed(), "```".dimmed());
+            in_rust_block = false;
+            highlighter = None;
+        } else if let Some(ref mut h) = highlighter {
+            // Highlight the code line
+            let line_nl = format!("{line}\n");
+            match h.highlight_line(&line_nl, &hl.ps) {
+                Ok(ranges) => {
+                    // false = don't include a reset at the end of every line
+                    let colored = as_24_bit_terminal_escaped(&ranges[..], false);
+                    // trim the trailing newline syntect adds so println! controls it
+                    let colored = colored.trim_end_matches('\n');
+                    println!("   {} {colored}", "|".dimmed());
+                }
+                Err(_) => println!("   {} {}", "|".dimmed(), line),
+            }
+        }
+    }
+}
 
 /// Formats and prints a single method to stdout.
 pub fn print_method(m: &analyzer::Method, name_width: usize, show_doc: bool) {
@@ -82,21 +156,23 @@ fn parse_call_args(detail: &str) -> String {
         .join(", ")
 }
 
-/// Prints the full documentation for a single method, untruncated.
+/// Respect `NO_COLOR` / piped output. When stdout isn't a TTY, syntect ANSI
+/// codes are noise
+fn is_color_enabled() -> bool {
+    std::env::var_os("NO_COLOR").is_none() && std::io::IsTerminal::is_terminal(&std::io::stdout())
+}
+
+#[allow(clippy::doc_markdown)]
+/// Prints the full documentation for a single method, with syntax-highlighted ```rust blocks.
 pub fn print_full_doc(m: &analyzer::Method) {
     println!("\n {} {}", "method:".dimmed(), m.name.bold().green());
-
     if let Some(detail) = &m.detail {
         println!("  {} {}", "sig:".dimmed(), detail.dimmed());
     }
-
     println!();
-
     match &m.documentation {
         Some(doc) if !doc.trim().is_empty() => {
-            for line in doc.lines() {
-                println!("   {} {}", "|".dimmed(), line);
-            }
+            print_doc_with_highlighting(doc);
         }
         _ => {
             println!(
@@ -106,6 +182,5 @@ pub fn print_full_doc(m: &analyzer::Method) {
             );
         }
     }
-
     println!();
 }

@@ -44,6 +44,7 @@ the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library 
 - Query 3rd party crate types with `--deps`
 - Colorized output, JSON output, and call snippets
 - Explain any method's full documentation with `--explain`
+- Syntax Highlighting of ```rust blocks in output from `--explain`
 
 
 ## Requirements
@@ -100,6 +101,7 @@ For full flag reference and detailed examples, see the sections below.
 - [3rd party crates](#3rd-party-crates)
 - [Call snippets](#call-snippets)
 - [JSON output](#json-output)
+- [Syntax highliting](#syntax-highlighting)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -269,6 +271,19 @@ Each item includes `name`, `detail` (full signature), and `documentation`.
 ## How it works
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) and the [lib crate README](./lib/README.md).
+
+## Syntax Highlighting
+
+The `--explain` flag renders full documentation with syntax-highlighted ```rust
+blocks:
+
+```bash
+$ rust-meth 'Result<u8, String>' --explain unwrap_unchecked
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.gif" width="600" alt="rustmeth syntax-highlighting">
+</p>
 
 ## License
 
