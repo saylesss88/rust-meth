@@ -282,7 +282,7 @@ $ rust-meth 'Result<u8, String>' --explain unwrap_unchecked
 ```
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.gif" width="600" alt="rustmeth syntax-highlighting">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.png" width="600" alt="rustmeth syntax-highlighting">
 </p>
 
 ## License
