@@ -95,7 +95,7 @@ impl Probe {
     /// ```
     fn infer_dep(type_name: &str) -> Option<String> {
         if !type_name.contains("::") {
-            return None; // primitives, String, Vec<u8>, etc. — never need an inferred dep
+            return None; // primitives, String, Vec<u8>, etc. never need an inferred dep
         }
         let crate_name = type_name.split("::").next()?;
         if crate_name.chars().next()?.is_ascii_lowercase() {
@@ -134,7 +134,6 @@ impl Probe {
         let dir =
             std::env::temp_dir().join(format!("rust-meth-{suffix}-{}-{id}", std::process::id()));
 
-        // let dir = std::env::temp_dir().join(format!("rust-meth-{suffix}-{}", std::process::id()));
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
