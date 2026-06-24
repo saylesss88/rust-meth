@@ -19,7 +19,8 @@ source. Powered by `rust-analyzer`.
 
 > [!IMPORTANT]
 > - **Standard Toolchain:** Fully supported (`std`, `core`, and `alloc`).
-> - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).
+> - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).For types where the crate name matches the type path prefix, `--deps` can be omitted.
+
 
 
 ## Workspace Structure
