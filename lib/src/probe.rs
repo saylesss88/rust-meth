@@ -159,8 +159,8 @@ impl Probe {
         //   N+1:      let _x: TYPE = todo!();
         //   N+2:      _x.         <-- completion trigger after the dot (or _x.METHOD() for definition)
         //   N+3:  }
-        let preamble_lines =
-            u32::try_from(PREAMBLE.lines().count()).expect("Preamble is too long to fit in u32");
+        let preamble_lines = u32::try_from(PREAMBLE.lines().count())
+            .expect("PREAMBLE is a fixed compile-time constant, line count always fits u32");
 
         // Generate source based on whether we're doing completion or definition
         let source = method_name.map_or_else(|| format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n"), |method| format!(
@@ -172,7 +172,8 @@ impl Probe {
 
         // Dot is at preamble_lines + 2, col = len("    _x.")
         let dot_line = preamble_lines + 2;
-        let dot_col = u32::try_from("    _x.".len()).expect("failed");
+        let dot_col =
+            u32::try_from("    _x.".len()).expect("string literal length always fits in u32");
 
         if std::env::var("RUST_METH_DEBUG").is_ok() {
             eprintln!("=== probe source ===");
