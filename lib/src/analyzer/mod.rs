@@ -8,9 +8,9 @@
 //!   7. shutdown / exit
 //!
 //! Split into:
-//! * [`discovery`] : locating the `rust-analyzer` binary
-//! * [`session`] : driving an LSP session end to end
-//! * [`parse`] : turning raw LSP JSON into [`Method`] / [`Definition`]
+//! * `discovery` : locating the `rust-analyzer` binary
+//! * `session` : driving an LSP session end to end
+//! * `parse` : turning raw LSP JSON into `Method` / `Definition`
 
 mod discovery;
 mod parse;
