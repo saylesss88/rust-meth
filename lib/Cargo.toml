@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth-lib"
-version = "0.2.1"
+version = "0.2.2"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -18,9 +18,11 @@ path = "src/lib.rs"
 doctest = false
 
 [dependencies]
-serde = { version = "1.0.228", default-features = false, features = ["serde_derive"] }
+serde = {version = "1.0.228", default-features = false, features = [
+	"serde_derive",
+]}
 serde_json = {workspace = true}
-thiserror = { version = "2.0.18", default-features = false }
+thiserror = {version = "2.0.18", default-features = false}
 
 [dev-dependencies]
 criterion = {version = "0.8.2", default-features = false}
