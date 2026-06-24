@@ -20,17 +20,17 @@ impl LspTransport {
     /// Creates a new `LspTransport` by taking ownership of the `stdin` and `stdout`
     /// streams from the provided child process.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the child process does not have a captured `stdin` or `stdout` stream
+    /// Errors if the child process does not have a captured `stdin` or `stdout` stream
     /// (e.g., if they weren't configured with `Stdio::piped()`).
-    pub fn new(child: &mut Child) -> Self {
-        let stdin = child.stdin.take().expect("stdin");
-        let stdout = child.stdout.take().expect("stdout");
-        Self {
+    pub fn new(child: &mut Child) -> Result<Self> {
+        let stdin = child.stdin.take().ok_or(RustMethError::MissingStdin)?;
+        let stdout = child.stdout.take().ok_or(RustMethError::MissingStdout)?;
+        Ok(Self {
             stdin,
             reader: BufReader::new(stdout),
-        }
+        })
     }
 
     /// Send a JSON-RPC message.
@@ -38,10 +38,11 @@ impl LspTransport {
     /// # Errors
     ///
     /// Returns an [`std::io::Error`] if writing to or flushing the underlying `stdin` stream fails.
-    pub fn send(&mut self, msg: &Value) -> std::io::Result<()> {
+    pub fn send(&mut self, msg: &Value) -> Result<()> {
         let body = msg.to_string();
         write!(self.stdin, "Content-Length: {}\r\n\r\n{}", body.len(), body)?;
-        self.stdin.flush()
+        self.stdin.flush()?;
+        Ok(())
     }
 
     /// Read the next LSP message (blocks until one arrives).
@@ -115,7 +116,7 @@ impl LspTransport {
                     }
                 },
                 "initializationOptions": {
-                    // Ask RA not to load proc-macros — speeds up cold indexing.
+                    // Ask RA not to load proc-macros (speeds up cold indexing).
                     "procMacro": { "enable": false }
                 }
             }

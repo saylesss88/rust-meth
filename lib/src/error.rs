@@ -42,6 +42,16 @@ pub enum RustMethError {
         "rust-analyzer not found.\nInstall it with: rustup component add rust-analyzer\nor ensure it is on your PATH."
     )]
     RustAnalyzerNotFound,
+
+    /// Indicates that the child process's `stdin` handle was not captured, typically because
+    /// it was not spawned with `Stdio::piped()`.
+    #[error("child process stdin was not captured (spawn with Stdio::piped())")]
+    MissingStdin,
+
+    /// Indicates that the child process's `stdout` handle was not captured, typically because
+    /// it was not spawned with `Stdio::piped()`.
+    #[error("child process stdout was not captured (spawn with Stdio::piped())")]
+    MissingStdout,
 }
 
 /// A specialized type alias for results returning [`RustMethError`].

@@ -41,7 +41,7 @@ pub fn query_methods(
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()?;
-    let mut lsp = LspTransport::new(&mut child);
+    let mut lsp = LspTransport::new(&mut child)?;
     let pid = std::process::id();
 
     // ── 1. initialize ────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ pub fn query_definition(
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()?;
-    let mut lsp = LspTransport::new(&mut child);
+    let mut lsp = LspTransport::new(&mut child)?;
     let pid = std::process::id();
 
     // Send didOpen immediately after initialized, don't wait
