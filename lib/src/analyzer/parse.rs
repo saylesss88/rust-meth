@@ -1,6 +1,6 @@
 //! Domain types and pure parsing of `rust-analyzer` LSP responses.
 //!
-//! Nothing in this module touches a process or a socket — it only turns
+//! Nothing in this module touches a process or a socket, it only turns
 //! [`serde_json::Value`] payloads into [`Method`] / [`Definition`] values.
 //! That makes it the easiest part of the analyzer to unit test, which is
 //! why almost all of the test suite lives here.
@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn parse_definition_src_path_fallback() {
-        // A third-party crate source — has /src/ but no /library/
+        // A third-party crate source, has /src/ but no /library/
         let resp = json!({
             "result": [{
                 "uri": "file:///home/user/myproject/src/main.rs",
