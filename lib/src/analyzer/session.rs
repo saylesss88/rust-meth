@@ -57,7 +57,8 @@ pub fn query_methods(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
-    wait_for_indexing(&mut lsp)?;
+    let diag_msg = wait_for_indexing(&mut lsp)?;
+    check_diagnostics_for_type_error(type_name, diag_msg.as_ref())?;
 
     // ── 5. completion — retry until RA returns items ──────────────────────────
     // RA may return isIncomplete+empty if it isn't fully ready yet.
@@ -80,6 +81,31 @@ pub fn query_methods(
 
     // ── 7. Parse completion items ─────────────────────────────────────────────
     parse::parse_methods(&completion_response)
+}
+
+/// Use diagnostics to find the error type
+fn check_diagnostics_for_type_error(type_name: &str, diag_msg: Option<&Value>) -> Result<()> {
+    let Some(msg) = diag_msg else { return Ok(()) };
+
+    let diagnostics = msg["params"]["diagnostics"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice);
+
+    for diag in diagnostics {
+        // severity 1 = Error in LSP
+        if diag["severity"].as_u64() != Some(1) {
+            continue;
+        }
+        let message = diag["message"].as_str().unwrap_or("");
+        // RA reports unknown types as "cannot find type `X` in this scope"
+        if message.contains("cannot find type") || message.contains("not found in") {
+            return Err(crate::error::RustMethError::TypeNotFound {
+                type_name: type_name.to_string(),
+                message: message.to_string(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Queries `rust-analyzer` for the precise upstream source file declaration layout of a specific method.
