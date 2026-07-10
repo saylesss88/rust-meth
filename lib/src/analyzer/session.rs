@@ -9,9 +9,9 @@ use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
-use crate::LspTransport;
 use crate::error::Result;
 use crate::probe::Probe;
+use crate::{LspTransport, error};
 
 use super::parse::{self, Definition, Method};
 
@@ -65,11 +65,23 @@ pub fn query_methods(
     let completion_response = retry_lsp_request(
         &mut lsp,
         10,
+        type_name,
         |req_id| LspTransport::completion(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
         |msg| {
-            msg["result"]["items"]
+            let items = msg["result"]["items"]
                 .as_array()
-                .is_some_and(|items| !items.is_empty() && !is_blanket_fallback(items))
+                .cloned()
+                .unwrap_or_default();
+
+            if std::env::var("RUST_METH_DEBUG").is_ok() {
+                for item in &items {
+                    eprintln!(
+                        "[debug] completion label={:?} kind={:?}",
+                        item["label"], item["kind"]
+                    );
+                }
+            }
+            !items.is_empty() && !is_blanket_fallback(&items)
         },
     )?;
 
@@ -96,6 +108,19 @@ fn check_diagnostics_for_type_error(type_name: &str, diag_msg: Option<&Value>) -
         if diag["severity"].as_u64() != Some(1) {
             continue;
         }
+
+        // Feature-gated items resolve structurally but were compiled out —
+        // check this before the generic "not found" check, since the two
+        // are easy to conflate (both stem from E04xx "cannot find" codes).
+        if let Some(rendered) = diag["data"]["rendered"].as_str()
+            && (rendered.contains("configured out") || rendered.contains("gated behind"))
+        {
+            return Err(crate::error::RustMethError::FeatureGated {
+                type_name: type_name.to_string(),
+                message: rendered.to_string(),
+            });
+        }
+
         let message = diag["message"].as_str().unwrap_or("");
         // RA reports unknown types as "cannot find type `X` in this scope"
         if message.contains("cannot find type") || message.contains("not found in") {
@@ -150,6 +175,7 @@ pub fn query_definition(
     let response = retry_lsp_request(
         &mut lsp,
         10,
+        type_name,
         |req_id| LspTransport::definition(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
         |msg| {
             let is_error = msg["error"]["code"].as_i64().is_some();
@@ -184,7 +210,7 @@ fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
     let drain_start = std::time::Instant::now();
     let _ = lsp.recv_until(200, |msg| {
         // Timeout escape hatch
-        if drain_start.elapsed() > std::time::Duration::from_secs(5) {
+        if drain_start.elapsed() > std::time::Duration::from_secs(3) {
             return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
@@ -249,6 +275,7 @@ fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
 fn retry_lsp_request<F, G>(
     lsp: &mut LspTransport,
     max_attempts: u64,
+    type_name: &str,
     mut make_request: F,
     mut is_success: G,
 ) -> Result<Value>
@@ -256,23 +283,22 @@ where
     F: FnMut(u64) -> Value,   // takes req_id, returns the request to send
     G: FnMut(&Value) -> bool, // returns true when response is good
 {
-    let mut result = Value::Null;
+    let start = std::time::Instant::now();
     for attempt in 1..=max_attempts {
         let req_id = attempt + 2;
         lsp.send(&make_request(req_id))?;
         let msg = lsp.recv_until(50, |msg| (msg["id"] == req_id).then(|| msg.clone()))?;
         if is_success(&msg) {
-            result = msg;
-            break;
+            return Ok(msg);
         }
         if attempt < max_attempts {
-            if std::env::var("RUST_METH_DEBUG").is_ok() {
-                eprintln!("(attempt {attempt}: not ready, retrying…)");
-            }
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
-    Ok(result)
+    Err(error::RustMethError::Timeout {
+        type_name: type_name.to_string(),
+        waited_secs: start.elapsed().as_secs(),
+    })
 }
 
 /// The generic blanket-impl completions RA returns for any type it can't
@@ -302,8 +328,11 @@ const BLANKET_FALLBACK_METHODS: &[&str] = &[
 ];
 
 fn is_blanket_fallback(items: &[Value]) -> bool {
-    let names: std::collections::BTreeSet<&str> =
-        items.iter().filter_map(|i| i["label"].as_str()).collect();
+    let names: std::collections::BTreeSet<&str> = items
+        .iter()
+        .filter_map(|i| i["label"].as_str())
+        .map(|label| label.split('(').next().unwrap_or(label).trim())
+        .collect();
     let fallback: std::collections::BTreeSet<&str> =
         BLANKET_FALLBACK_METHODS.iter().copied().collect();
     !names.is_empty() && names == fallback
