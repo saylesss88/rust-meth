@@ -3,7 +3,7 @@
 //! Each public function here spins up an ephemeral `rust-analyzer` subprocess,
 //! drives it through the handshake, asks one question (completion or
 //! definition), and tears it back down. The two query functions are
-//! intentionally similar in shape — see the module-level note below.
+//! intentionally similar in shape, see the module-level note below.
 
 use std::process::{Command, Stdio};
 

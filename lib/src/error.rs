@@ -52,6 +52,16 @@ pub enum RustMethError {
     /// it was not spawned with `Stdio::piped()`.
     #[error("child process stdout was not captured (spawn with Stdio::piped())")]
     MissingStdout,
+
+    /// Raised when rust-analyzer reports a diagnostic error for the probed type,
+    /// indicating the type does not exist in scope (e.g. a typo or non-existent type).
+    #[error("type not found: `{type_name}` — rust-analyzer reported: {message}")]
+    TypeNotFound {
+        /// The type name that was queried.
+        type_name: String,
+        /// The diagnostic message from rust-analyzer.
+        message: String,
+    },
 }
 
 /// A specialized type alias for results returning [`RustMethError`].
