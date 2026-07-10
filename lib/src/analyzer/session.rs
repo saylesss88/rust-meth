@@ -148,14 +148,14 @@ pub fn query_definition(
 ///   - experimental/serverStatus with quiescent == true
 ///   - workspace/diagnostic/refresh
 ///   - textDocument/publishDiagnostics
-fn wait_for_indexing(lsp: &mut LspTransport) -> Result<()> {
+fn wait_for_indexing(lsp: &mut LspTransport) -> Result<Option<Value>> {
     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
     let start = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(10); // Hard timeout
     lsp.recv_until(200, |msg| {
         // Timeout escape hatch
         if start.elapsed() > timeout {
-            return Some(()); // Give up and try anyway
+            return Some(None);
         }
         let method = msg["method"].as_str().unwrap_or("");
         if debug {
@@ -164,24 +164,25 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> Result<()> {
         match method {
             "$/progress" => {
                 if msg["params"]["value"]["kind"] == "end" {
-                    Some(())
+                    Some(None)
                 } else {
                     None
                 }
             }
             "experimental/serverStatus" => {
                 if msg["params"]["quiescent"] == true {
-                    Some(())
+                    Some(None)
                 } else {
                     None
                 }
             }
-            // These are strong signals that indexing is done
-            "textDocument/publishDiagnostics" | "workspace/diagnostic/refresh" => Some(()),
+
+            "workspace/diagnostic/refresh" => Some(None),
+            "textDocument/publishDiagnostics" => Some(Some(msg.clone())),
             _ => None,
         }
     })
-    .or(Ok(()))
+    .or(Ok(None)) // RecvExhausted -> proceed without diagnostics
 }
 
 fn retry_lsp_request<F, G>(
