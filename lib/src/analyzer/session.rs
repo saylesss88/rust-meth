@@ -57,7 +57,7 @@ pub fn query_methods(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
-    let diag_msg = wait_for_indexing(&mut lsp);
+    let diag_msg = wait_for_indexing(&mut lsp, &probe.src_uri());
     check_diagnostics_for_type_error(type_name, diag_msg.as_ref())?;
 
     // ── 5. completion — retry until RA returns items ──────────────────────────
@@ -143,7 +143,7 @@ pub fn query_definition(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // Now wait for indexing
-    wait_for_indexing(&mut lsp);
+    wait_for_indexing(&mut lsp, &probe.src_uri());
 
     // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
@@ -174,7 +174,7 @@ pub fn query_definition(
 ///   - experimental/serverStatus with quiescent == true
 ///   - workspace/diagnostic/refresh
 ///   - textDocument/publishDiagnostics
-fn wait_for_indexing(lsp: &mut LspTransport) -> Option<Value> {
+fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
     // Accumulate the last publishDiagnostics message seen.
     // Wait untill RA signals it's truly done.
@@ -214,7 +214,28 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> Option<Value> {
                 Some(())
             }
             "textDocument/publishDiagnostics" => {
-                last_diag = Some(msg.clone());
+                if debug {
+                    eprintln!(
+                        "[debug] diagnostics: {}",
+                        serde_json::to_string_pretty(&msg["params"]).unwrap_or_default()
+                    );
+                }
+
+                let is_probe_file = msg["params"]["uri"].as_str() == Some(probe_uri);
+                let has_type_error = is_probe_file
+                    && msg["params"]["diagnostics"]
+                        .as_array()
+                        .is_some_and(|diags| {
+                            diags.iter().any(|d| {
+                                d["severity"].as_u64() == Some(1)
+                                    && d["message"].as_str().is_some_and(|m| {
+                                        m.contains("cannot find type") || m.contains("not found in")
+                                    })
+                            })
+                        });
+                if has_type_error || (is_probe_file && last_diag.is_none()) {
+                    last_diag = Some(msg.clone());
+                }
                 None
             }
             _ => None,
