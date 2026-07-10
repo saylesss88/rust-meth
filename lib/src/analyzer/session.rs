@@ -69,7 +69,7 @@ pub fn query_methods(
         |msg| {
             msg["result"]["items"]
                 .as_array()
-                .is_some_and(|a| !a.is_empty())
+                .is_some_and(|items| !items.is_empty() && !is_blanket_fallback(items))
         },
     )?;
 
@@ -184,7 +184,7 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> Option<Value> {
     let drain_start = std::time::Instant::now();
     let _ = lsp.recv_until(200, |msg| {
         // Timeout escape hatch
-        if drain_start.elapsed() > std::time::Duration::from_millis(300) {
+        if drain_start.elapsed() > std::time::Duration::from_secs(5) {
             return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
@@ -252,4 +252,38 @@ where
         }
     }
     Ok(result)
+}
+
+/// The generic blanket-impl completions RA returns for any type it can't
+/// fully resolve yet (still indexing) or can't resolve at all (unknown type).
+/// If completion results are *exactly* this set, treat it as "not ready" —
+/// never treat it as a legitimate answer.
+const BLANKET_FALLBACK_METHODS: &[&str] = &[
+    "clamp",
+    "clone",
+    "clone_from",
+    "clone_into",
+    "cmp",
+    "eq",
+    "ge",
+    "gt",
+    "into",
+    "le",
+    "lt",
+    "max",
+    "min",
+    "ne",
+    "not",
+    "partial_cmp",
+    "to_owned",
+    "to_string",
+    "try_into",
+];
+
+fn is_blanket_fallback(items: &[Value]) -> bool {
+    let names: std::collections::BTreeSet<&str> =
+        items.iter().filter_map(|i| i["label"].as_str()).collect();
+    let fallback: std::collections::BTreeSet<&str> =
+        BLANKET_FALLBACK_METHODS.iter().copied().collect();
+    !names.is_empty() && names == fallback
 }
