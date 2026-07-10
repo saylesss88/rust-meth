@@ -57,7 +57,7 @@ pub fn query_methods(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
-    let diag_msg = wait_for_indexing(&mut lsp)?;
+    let diag_msg = wait_for_indexing(&mut lsp);
     check_diagnostics_for_type_error(type_name, diag_msg.as_ref())?;
 
     // ── 5. completion — retry until RA returns items ──────────────────────────
@@ -143,7 +143,7 @@ pub fn query_definition(
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
 
     // Now wait for indexing
-    wait_for_indexing(&mut lsp)?;
+    wait_for_indexing(&mut lsp);
 
     // Retry on "content modified" - RA rejects requests while it's still
     // processing the file. Same pattern as the completion retry loop.
@@ -174,14 +174,18 @@ pub fn query_definition(
 ///   - experimental/serverStatus with quiescent == true
 ///   - workspace/diagnostic/refresh
 ///   - textDocument/publishDiagnostics
-fn wait_for_indexing(lsp: &mut LspTransport) -> Result<Option<Value>> {
+fn wait_for_indexing(lsp: &mut LspTransport) -> Option<Value> {
     let debug = std::env::var("RUST_METH_DEBUG").is_ok();
-    let start = std::time::Instant::now();
-    let timeout = std::time::Duration::from_secs(10); // Hard timeout
-    lsp.recv_until(200, |msg| {
+    // Accumulate the last publishDiagnostics message seen.
+    // Wait untill RA signals it's truly done.
+    let mut last_diag: Option<Value> = None;
+    let mut done = false;
+
+    let drain_start = std::time::Instant::now();
+    let _ = lsp.recv_until(200, |msg| {
         // Timeout escape hatch
-        if start.elapsed() > timeout {
-            return Some(None);
+        if drain_start.elapsed() > std::time::Duration::from_millis(300) {
+            return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
         if debug {
@@ -190,25 +194,35 @@ fn wait_for_indexing(lsp: &mut LspTransport) -> Result<Option<Value>> {
         match method {
             "$/progress" => {
                 if msg["params"]["value"]["kind"] == "end" {
-                    Some(None)
+                    done = true;
+                    Some(())
                 } else {
                     None
                 }
             }
             "experimental/serverStatus" => {
                 if msg["params"]["quiescent"] == true {
-                    Some(None)
+                    done = true;
+                    Some(())
                 } else {
                     None
                 }
             }
 
-            "workspace/diagnostic/refresh" => Some(None),
-            "textDocument/publishDiagnostics" => Some(Some(msg.clone())),
+            "workspace/diagnostic/refresh" => {
+                done = true;
+                Some(())
+            }
+            "textDocument/publishDiagnostics" => {
+                last_diag = Some(msg.clone());
+                None
+            }
             _ => None,
         }
-    })
-    .or(Ok(None)) // RecvExhausted -> proceed without diagnostics
+    });
+    let _ = done;
+
+    last_diag
 }
 
 fn retry_lsp_request<F, G>(
