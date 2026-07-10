@@ -12,7 +12,7 @@ docs, interactive selection, and go-to-definition into the standard library
 source. Powered by `rust-analyzer`.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/rust-meth-clr.png" width="400" alt="rust-meth color output">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/serde_json.png" width="600" alt="rustmeth-serde_json example">
 </p>
 
 > Think of it as "method completion for any Rust type, anywhere in your terminal."
