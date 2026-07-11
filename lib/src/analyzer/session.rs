@@ -64,7 +64,7 @@ pub fn query_methods(
     // RA may return isIncomplete+empty if it isn't fully ready yet.
     let completion_response = retry_lsp_request(
         &mut lsp,
-        10,
+        20,
         type_name,
         |req_id| LspTransport::completion(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
         |msg| {
@@ -174,7 +174,7 @@ pub fn query_definition(
     // processing the file. Same pattern as the completion retry loop.
     let response = retry_lsp_request(
         &mut lsp,
-        10,
+        20,
         type_name,
         |req_id| LspTransport::definition(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
         |msg| {
