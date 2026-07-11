@@ -184,7 +184,6 @@ For types where the crate name matches the type path prefix, `--deps` can be omi
 
 ```sh
 rust-meth 'serde_json::Value'
-rust-meth 'tokio::net::TcpStream' --doc
 rust-meth 'serde_json::Value' -i
 ```
 
@@ -198,6 +197,30 @@ tokio = { version = "1", features = ["full"] }'
 
 > [!NOTE]
 > First-time queries may take 5–10 seconds as `rust-analyzer` downloads and indexes dependencies.
+
+
+## Example: querying a third-party crate
+
+Enumerate methods on a type from any crate, including its optional features:
+
+```bash
+rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["full"] }'
+```
+
+```bash
+rust-meth: methods on `tokio::net::TcpStream`
+  as_ref              fn(&self) -> &T
+  async_io            async fn(&self, Interest, impl FnMut() -> Result<R, Error>) -> Result<R, Error>
+  into                fn(self) -> T
+  into_split          fn(self) -> (OwnedReadHalf, OwnedWriteHalf)
+  ...
+  writable            async fn(&self) -> Result<(), Error>
+32 method(s)
+```
+
+`--deps` accepts any valid `Cargo.toml` dependency line, so you can pin versions,
+enable features, or point at git/path dependencies the same way you would in a
+real project.
 
 <a id="explain-a-method"></a>
 ## Explain a method
@@ -238,6 +261,7 @@ rust-meth u8 --explain checked_add --browser
 > [!NOTE]
 > Unlike `--open-doc`, `--explain --browser` does not require `--gd` and skips
 > the definition lookup step, making it faster for quick doc lookups.
+
 
 ---
 

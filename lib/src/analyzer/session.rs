@@ -159,7 +159,7 @@ pub fn query_definition(
 
     // Send didOpen immediately after initialized, don't wait
     lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
-    lsp.recv_until(20, |msg| {
+    lsp.recv_until(5000, |msg| {
         (msg["id"] == 1 && msg["result"].is_object()).then_some(())
     })?;
 
@@ -174,7 +174,7 @@ pub fn query_definition(
     // processing the file. Same pattern as the completion retry loop.
     let response = retry_lsp_request(
         &mut lsp,
-        20,
+        60,
         type_name,
         |req_id| LspTransport::definition(req_id, &probe.src_uri(), probe.dot_line, probe.dot_col),
         |msg| {
@@ -208,9 +208,9 @@ fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
     let mut done = false;
 
     let drain_start = std::time::Instant::now();
-    let _ = lsp.recv_until(200, |msg| {
+    let _ = lsp.recv_until(20, |msg| {
         // Timeout escape hatch
-        if drain_start.elapsed() > std::time::Duration::from_secs(3) {
+        if drain_start.elapsed() > std::time::Duration::from_secs(120) {
             return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
