@@ -23,13 +23,26 @@ session.
 
 ```
 rust-meth/
-├── lib/          ← this crate (rust-meth-lib)
+├── Cargo.toml               — workspace manifest
+├── lib/                     — rust-meth-lib (this crate)
+│   ├── Cargo.toml
+│   ├── README.md
+│   ├── benches/
+│   │   └── benchmarks.rs
 │   └── src/
 │       ├── lib.rs
-│       ├── analyzer.rs    — orchestrates the full LSP session
-│       ├── lsp.rs         — LSP transport (stdio JSON-RPC)
-│       ├── probe.rs       — temporary project scaffolding
-└── cli/          — standalone binary crate that calls into this library
+│       ├── error.rs
+│       ├── lsp.rs
+│       ├── probe.rs
+│       └── analyzer/
+│           ├── mod.rs
+│           ├── discovery.rs
+│           ├── parse.rs
+│           └── session.rs
+└── cli/                     — standalone binary crate that calls into this library
+    ├── Cargo.toml
+    └── src/
+        └── main.rs
 ```
 
 > UI components, CLI argument parsing, interactive selection, and spinner
@@ -74,17 +87,25 @@ let transport = LspTransport::spawn(probe.root())?;
 The library uses a single
 [`RustMethError`](https://docs.rs/rust-meth-lib/latest/rust_meth_lib/error/enum.RustMethError.html)
 enum (via [`thiserror`](https://docs.rs/thiserror)) and a `Result<T>` alias over
-it.
+it:
 
-| Variant                   | Cause                                                   |
-| ------------------------- | ------------------------------------------------------- |
-| `Io`                      | OS / file system errors (`std::io::Error`)              |
-| `Json`                    | JSON serialization or deserialization failure           |
-| `ParseInt`                | String-to-integer conversion failure                    |
-| `NoContentLength`         | LSP response missing a `Content-Length` header          |
-| `RecvExhausted { limit }` | Message loop hit `limit` without matching a response    |
-| `UnexpectedResponseShape` | Structurally valid JSON but missing expected fields     |
-| `RustAnalyzerNotFound`    | `rust-analyzer` not on `PATH` or in component directory |
+```rs
+pub type Result<T> = std::result::Result<T, RustMethError>;
+```
+
+| Variant                   | Cause                                                                      |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `Io`                      | OS / file system errors (`std::io::Error`)                                 |
+| `Json`                    | JSON serialization or deserialization failure                              |
+| `ParseInt`                | String-to-integer conversion failure                                       |
+| `NoContentLength`         | LSP response missing a `Content-Length` header                             |
+| `RecvExhausted { limit }` | Message loop hit `limit` without matching a response                       |
+| `UnexpectedResponseShape` | Structurally valid JSON but missing expected fields                        |
+| `RustAnalyzerNotFound`    | `rust-analyzer` not on `PATH` or in component directory                    |
+| `MissingStdin`            | `stdin` handle wasn't captured                                             |
+| `TypeNotFound`            | `rust-analyzer` diagnostic error for the probed type                       |
+| `Timeout`                 | `rust-analyzer` failed to produce a usable response within retry budget    |
+| `FeatureGated`            | Type exists but requires a feature flag that wasn't enabled for this probe |
 
 All fallible functions in this crate return `rust_meth_lib::Result<T>`. If
 you’re embedding the library, you can convert into your own error type via `?`
