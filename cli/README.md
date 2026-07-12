@@ -12,15 +12,14 @@ docs, interactive selection, and go-to-definition into the standard library
 source. Powered by `rust-analyzer`.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/rust-meth-clr.png" width="400" alt="rust-meth color output">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/serde_json.png" width="600" alt="rustmeth-serde_json example">
 </p>
 
 > Think of it as "method completion for any Rust type, anywhere in your terminal."
 
 > [!IMPORTANT]
 > - **Standard Toolchain:** Fully supported (`std`, `core`, and `alloc`).
-> - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).For types where the crate name matches the type path prefix, `--deps` can be omitted.
-
+> - **External Crates:** Supported via the `--deps` flag (see [3rd party crates](#3rd-party-crates)).
 
 
 ## Workspace Structure
@@ -185,7 +184,6 @@ For types where the crate name matches the type path prefix, `--deps` can be omi
 
 ```sh
 rust-meth 'serde_json::Value'
-rust-meth 'tokio::net::TcpStream' --doc
 rust-meth 'serde_json::Value' -i
 ```
 
@@ -199,6 +197,30 @@ tokio = { version = "1", features = ["full"] }'
 
 > [!NOTE]
 > First-time queries may take 5–10 seconds as `rust-analyzer` downloads and indexes dependencies.
+
+
+## Example: querying a third-party crate
+
+Enumerate methods on a type from any crate, including its optional features:
+
+```bash
+rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["full"] }'
+```
+
+```bash
+rust-meth: methods on `tokio::net::TcpStream`
+  as_ref              fn(&self) -> &T
+  async_io            async fn(&self, Interest, impl FnMut() -> Result<R, Error>) -> Result<R, Error>
+  into                fn(self) -> T
+  into_split          fn(self) -> (OwnedReadHalf, OwnedWriteHalf)
+  ...
+  writable            async fn(&self) -> Result<(), Error>
+32 method(s)
+```
+
+`--deps` accepts any valid `Cargo.toml` dependency line, so you can pin versions,
+enable features, or point at git/path dependencies the same way you would in a
+real project.
 
 <a id="explain-a-method"></a>
 ## Explain a method
@@ -239,6 +261,7 @@ rust-meth u8 --explain checked_add --browser
 > [!NOTE]
 > Unlike `--open-doc`, `--explain --browser` does not require `--gd` and skips
 > the definition lookup step, making it faster for quick doc lookups.
+
 
 ---
 
@@ -283,12 +306,8 @@ $ rust-meth 'Result<u8, String>' --explain unwrap_unchecked
 ```
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.png" width="600" alt="rustmeth syntax-highlighting">
+  <img src="https://raw.githubusercontent.com/saylesss88/rust-meth/main/assets/syntax-highlighting.cleaned.gif" width="600" alt="rustmeth syntax-highlighting">
 </p>
-
-Code inside ```rust fences is highlighted using the base16-ocean.dark theme via
-`syntext`. Plain output is used automatically when stdout is piped or `NO_COLOR`
-is set.
 
 ## License
 
