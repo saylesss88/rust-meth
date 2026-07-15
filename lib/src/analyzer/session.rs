@@ -210,7 +210,7 @@ fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
     let drain_start = std::time::Instant::now();
     let _ = lsp.recv_until(20, |msg| {
         // Timeout escape hatch
-        if drain_start.elapsed() > std::time::Duration::from_secs(120) {
+        if drain_start.elapsed() > std::time::Duration::from_mins(2) {
             return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
