@@ -4,9 +4,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 /// Creates and starts a new spinner with a custom message.
 ///
-/// The spinner automatically disappears when dropped, so wrap it in a scope
-/// or explicitly call `finish()` when the operation completes.
-///
 /// # Panics
 ///
 /// Panics if the internal hardcoded formatting template string fails to parse.

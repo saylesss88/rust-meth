@@ -72,9 +72,9 @@ fn handle_explain_mode(opts: &Opts, ra_path: &std::path::Path) -> Result<bool, S
     Ok(true)
 }
 
-/// Builds a best-effort doc URL for --explain --browser without needing a definition lookup.
+/// Builds a best-effort doc URL for `--explain --browser` without needing a definition lookup.
 fn build_explain_url(type_name: &str, method_name: &str) -> String {
-    // Reuse the same logic as build_doc_url but without a Definition.
+    // Reuse the same logic as `build_doc_url` but without a Definition.
     // We can build a reasonable URL for stdlib types using the type name alone.
     let bare_type = type_name.split('<').next().unwrap_or(type_name);
 
@@ -109,11 +109,6 @@ fn build_explain_url(type_name: &str, method_name: &str) -> String {
 }
 /// Parses command-line arguments using the UI configuration module.
 ///
-/// If the arguments match standard configuration parameters, it extracts and returns `Opts`.
-/// If the arguments contain explicit user requests for help or version information, this
-/// function handles printing that metadata directly to standard output or standard error
-/// and terminates the active process.
-///
 /// # Errors
 ///
 /// Returns an `Err` if the command-line arguments are malformed or missing required keys.
@@ -137,10 +132,6 @@ fn parse_or_exit(version: &str) -> Result<Opts, String> {
 }
 
 /// Evaluates whether the application is running in "go-to-definition" mode and executes it.
-///
-/// If `opts.goto_def` is populated, this function intercepts the execution flow to trace down
-/// where a specific method is defined using `rust-analyzer`. It handles rendering progress animations
-/// and optionally opening the file location in an external text editor or browser documentation.
 ///
 /// # Returns
 ///

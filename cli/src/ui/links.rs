@@ -29,6 +29,7 @@ pub fn open_in_editor(def: &analyzer::Definition) -> Result<(), String> {
         "code" | "code-insiders" => Command::new(&editor)
             .args(["--goto", &format!("{path}:{line}")])
             .status(),
+        // Catches `vi`/`vim`, and `nvim`
         _ => Command::new(&editor)
             .arg(format!("+{line}"))
             .arg(path)

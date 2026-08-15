@@ -127,17 +127,6 @@ pub fn usage(bin: &str) -> String {
 
 /// Parses the environment command-line arguments into a structured [`ParseResult`].
 ///
-/// This function manually iterates over [`std::env::args`], resolving the executable's
-/// binary name dynamically. It enforces positional priorities (e.g., `<type_name>` must precede
-/// optional `<filter>`) and validates incompatible flag pairings.
-///
-/// # Layout Rules & Semantics
-///
-/// * **Early Returns:** Global meta-flags like `-h`/`--help` or `-V`/`--version` instantly
-///   intercept evaluation and return a pre-baked variant.
-/// * **Muting Overrides:** If `--interactive` is enabled, any trailing text filter argument
-///   is explicitly dropped (`filter = None`).
-///
 /// # Errors
 ///
 /// Returns an `Err(String)` containing utility descriptions if:
