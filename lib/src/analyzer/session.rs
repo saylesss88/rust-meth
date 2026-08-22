@@ -5,7 +5,9 @@
 //! definition), and tears it back down. The two query functions are
 //! intentionally similar in shape, see the module-level note below.
 
+use std::collections::BTreeSet;
 use std::process::{Command, Stdio};
+use std::time;
 
 use serde_json::Value;
 
@@ -35,6 +37,63 @@ pub fn query_methods(
     ra_path: &std::path::Path,
     deps: Option<&str>,
 ) -> Result<Vec<Method>> {
+    query_methods_inner(type_name, ra_path, deps)
+}
+
+/// Queries `rust-analyzer` for methods on multiple types in parallel.
+///
+/// Spawns one thread per query using [`std::thread::scope`]. Each query runs
+/// an independent `rust-analyzer` subprocess, so failures are per-type and do
+/// not abort the batch. Results are returned in the same order as `queries`.
+///
+/// # Example
+///
+/// ```no_run
+/// use rust_meth_lib::analyzer::{find_rust_analyzer, query_methods_batch};
+///
+/// let ra_path = find_rust_analyzer().unwrap();
+/// let queries = &[
+///     ("Vec<u8>", None),
+///     ("String", None),
+///     ("HashMap<String, u32>", None),
+/// ];
+/// for (type_name, result) in query_methods_batch(queries, &ra_path) {
+///     match result {
+///         Ok(methods) => println!("{type_name}: {} methods", methods.len()),
+///         Err(e) => eprintln!("{type_name}: {e}"),
+///     }
+/// }
+/// ```
+/// # Environment Variables
+///
+/// * `RUST_METH_DEBUG` - If set, logs raw LSP method lifecycle events to standard error.
+///
+/// ## Panics
+///
+/// Panics if any of the spawned background threads for processing queries panics
+/// or fails to join (e.g., due to an unhandled thread fault during the LSP session).
+#[must_use]
+pub fn query_methods_batch<'a>(
+    queries: &[(&'a str, Option<&'a str>)],
+    ra_path: &std::path::Path,
+) -> Vec<(&'a str, Result<Vec<Method>>)> {
+    std::thread::scope(|s| {
+        queries
+            .iter()
+            .map(|&(type_name, deps)| {
+                s.spawn(move || (type_name, query_methods_inner(type_name, ra_path, deps)))
+            })
+            .map(|h| h.join().expect("query thread should not panic"))
+            .collect()
+    })
+}
+
+/// Inner implementation shared by [`query_methods`] and [`query_methods_batch`].
+fn query_methods_inner(
+    type_name: &str,
+    ra_path: &std::path::Path,
+    deps: Option<&str>,
+) -> Result<Vec<Method>> {
     let probe = Probe::new_with_deps(type_name, deps)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
@@ -43,23 +102,18 @@ pub fn query_methods(
         .spawn()?;
     let mut lsp = LspTransport::new(&mut child)?;
     let pid = std::process::id();
-
     // ── 1. initialize ────────────────────────────────────────────────────────
     lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
     lsp.recv_until(20, |msg| {
         (msg["id"] == 1 && msg["result"].is_object()).then_some(())
     })?;
-
     // ── 2. initialized notification ──────────────────────────────────────────
     lsp.send(&LspTransport::initialized())?;
-
     // ── 3. didOpen ───────────────────────────────────────────────────────────
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
-
     // ── 4. Wait for RA to finish indexing ────────────────────────────────────
     let diag_msg = wait_for_indexing(&mut lsp, &probe.src_uri());
     check_diagnostics_for_type_error(type_name, diag_msg.as_ref())?;
-
     // ── 5. completion — retry until RA returns items ──────────────────────────
     // RA may return isIncomplete+empty if it isn't fully ready yet.
     let completion_response = retry_lsp_request(
@@ -72,7 +126,6 @@ pub fn query_methods(
                 .as_array()
                 .cloned()
                 .unwrap_or_default();
-
             if std::env::var("RUST_METH_DEBUG").is_ok() {
                 for item in &items {
                     eprintln!(
@@ -84,13 +137,11 @@ pub fn query_methods(
             !items.is_empty() && !is_blanket_fallback(&items)
         },
     )?;
-
     // ── 6. shutdown / exit ────────────────────────────────────────────────────
     lsp.send(&LspTransport::shutdown(13))?;
     let _ = lsp.recv_until(10, |msg| (msg["id"] == 13).then_some(()));
     lsp.send(&LspTransport::exit())?;
     let _ = child.wait();
-
     // ── 7. Parse completion items ─────────────────────────────────────────────
     parse::parse_methods(&completion_response)
 }
@@ -109,7 +160,7 @@ fn check_diagnostics_for_type_error(type_name: &str, diag_msg: Option<&Value>) -
             continue;
         }
 
-        // Feature-gated items resolve structurally but were compiled out —
+        // Feature-gated items resolve structurally but were compiled out,
         // check this before the generic "not found" check, since the two
         // are easy to conflate (both stem from E04xx "cannot find" codes).
         if let Some(rendered) = diag["data"]["rendered"].as_str()
@@ -207,10 +258,10 @@ fn wait_for_indexing(lsp: &mut LspTransport, probe_uri: &str) -> Option<Value> {
     let mut last_diag: Option<Value> = None;
     let mut done = false;
 
-    let drain_start = std::time::Instant::now();
+    let drain_start = time::Instant::now();
     let _ = lsp.recv_until(20, |msg| {
         // Timeout escape hatch
-        if drain_start.elapsed() > std::time::Duration::from_mins(2) {
+        if drain_start.elapsed() > time::Duration::from_mins(2) {
             return Some(());
         }
         let method = msg["method"].as_str().unwrap_or("");
@@ -283,7 +334,7 @@ where
     F: FnMut(u64) -> Value,   // takes req_id, returns the request to send
     G: FnMut(&Value) -> bool, // returns true when response is good
 {
-    let start = std::time::Instant::now();
+    let start = time::Instant::now();
     for attempt in 1..=max_attempts {
         let req_id = attempt + 2;
         lsp.send(&make_request(req_id))?;
@@ -292,7 +343,7 @@ where
             return Ok(msg);
         }
         if attempt < max_attempts {
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(time::Duration::from_millis(500));
         }
     }
     Err(error::RustMethError::Timeout {
@@ -303,7 +354,7 @@ where
 
 /// The generic blanket-impl completions RA returns for any type it can't
 /// fully resolve yet (still indexing) or can't resolve at all (unknown type).
-/// If completion results are *exactly* this set, treat it as "not ready" —
+/// If completion results are *exactly* this set, treat it as "not ready":
 /// never treat it as a legitimate answer.
 const BLANKET_FALLBACK_METHODS: &[&str] = &[
     "clamp",
@@ -328,12 +379,11 @@ const BLANKET_FALLBACK_METHODS: &[&str] = &[
 ];
 
 fn is_blanket_fallback(items: &[Value]) -> bool {
-    let names: std::collections::BTreeSet<&str> = items
+    let names: BTreeSet<&str> = items
         .iter()
         .filter_map(|i| i["label"].as_str())
         .map(|label| label.split('(').next().unwrap_or(label).trim())
         .collect();
-    let fallback: std::collections::BTreeSet<&str> =
-        BLANKET_FALLBACK_METHODS.iter().copied().collect();
+    let fallback: BTreeSet<&str> = BLANKET_FALLBACK_METHODS.iter().copied().collect();
     !names.is_empty() && names == fallback
 }

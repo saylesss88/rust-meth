@@ -1,4 +1,4 @@
-//! # third_party_crate
+//! # `third_party_crate`
 //!
 //! Querying methods on types from external crates.
 //!

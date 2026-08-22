@@ -1,4 +1,4 @@
-//! # batch_query
+//! # `batch_query`
 //!
 //! Querying multiple types and aggregating the results.
 //!
@@ -6,10 +6,10 @@
 //! across a family of related types, find methods common to all of them,
 //! or produce a diff-style view showing what each type adds over a base.
 //!
-//! Note: each `query_methods` call spins up its own ephemeral `rust-analyzer`
-//! session. Sessions are independent and don't share state. For a large batch
-//! you'll want to handle errors per-type rather than letting one failure abort
-//! the whole run, this example shows that pattern.
+//! [`query_methods_batch`] runs each query in parallel: one thread per type,
+//! each with its own independent `rust-analyzer` subprocess. Total wall time
+//! is roughly the cost of the slowest single query rather than the sum of all.
+//! Errors are per-type and do not abort the batch.
 //!
 //! ```toml
 //! [dependencies]
@@ -20,35 +20,40 @@
 //!
 //! For `Vec<u8>`, `VecDeque<u8>`, and `LinkedList<u8>`:
 //!
-//! - **Per-type method counts**: printed as each query completes
+//! - **Per-type method counts**: printed after all queries complete
 //! - **Common methods**: the intersection across all three types
 //! - **Unique methods**: what each type has that neither of the others does
 
-use rust_meth_lib::analyzer::{find_rust_analyzer, query_methods};
+use rust_meth_lib::analyzer::{find_rust_analyzer, query_methods_batch};
 use rust_meth_lib::error::RustMethError;
 use std::collections::{BTreeMap, BTreeSet};
 
 fn main() -> rust_meth_lib::error::Result<()> {
     let ra_path = find_rust_analyzer()?;
 
-    let types = ["Vec<u8>", "VecDeque<u8>", "LinkedList<u8>"];
+    let queries: &[(&str, Option<&str>)] = &[
+        ("Vec<u8>", None),
+        ("VecDeque<u8>", None),
+        ("LinkedList<u8>", None),
+    ];
 
-    // ── Per-type query with per-type error handling ──────────────────────────
-    //
-    // Collect into a BTreeMap so results are ordered and we can compare them.
+    // All three queries run in parallel. Results come back in input order.
+    let batch_results = query_methods_batch(queries, &ra_path);
+
+    // ── Partition into successes and failures ────────────────────────────────
+
     let mut results: BTreeMap<&str, BTreeSet<String>> = BTreeMap::new();
     let mut failures: Vec<(&str, RustMethError)> = Vec::new();
 
-    for type_name in &types {
-        print!("Querying {type_name}... ");
-        match query_methods(type_name, &ra_path, None) {
+    for (type_name, result) in batch_results {
+        match result {
             Ok(methods) => {
                 let names: BTreeSet<String> = methods.into_iter().map(|m| m.name).collect();
-                println!("{} methods", names.len());
+                println!("{type_name}: {} methods", names.len());
                 results.insert(type_name, names);
             }
             Err(e) => {
-                println!("FAILED: {e}");
+                eprintln!("{type_name}: FAILED: {e}");
                 failures.push((type_name, e));
             }
         }

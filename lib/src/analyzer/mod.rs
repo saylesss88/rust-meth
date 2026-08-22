@@ -18,4 +18,4 @@ mod session;
 
 pub use discovery::find_rust_analyzer;
 pub use parse::{Definition, Method, parse_definition, parse_methods};
-pub use session::{query_definition, query_methods};
+pub use session::{query_definition, query_methods, query_methods_batch};

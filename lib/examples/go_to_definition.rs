@@ -1,4 +1,4 @@
-//! # go_to_definition
+//! # `go_to_definition`
 //!
 //! Resolves the source location of a specific method using
 //! `query_definition`.

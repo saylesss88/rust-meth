@@ -1,4 +1,4 @@
-//! # fuzzy_filter
+//! # `fuzzy_filter`
 //!
 //! Using `rust-meth-lib` as a data source for your own search/filter UI.
 //!

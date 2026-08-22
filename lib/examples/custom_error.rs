@@ -1,4 +1,4 @@
-//! # custom_error
+//! # `custom_error`
 //!
 //! Integrating `RustMethError` into your own error type.
 //!
@@ -63,9 +63,9 @@ enum AppError {
 impl From<RustMethError> for AppError {
     fn from(err: RustMethError) -> Self {
         match err {
-            RustMethError::RustAnalyzerNotFound => AppError::RustAnalyzerMissing,
-            RustMethError::TypeNotFound { type_name, .. } => AppError::UnknownType { type_name },
-            other => AppError::QueryFailed(other),
+            RustMethError::RustAnalyzerNotFound => Self::RustAnalyzerMissing,
+            RustMethError::TypeNotFound { type_name, .. } => Self::UnknownType { type_name },
+            other => Self::QueryFailed(other),
         }
     }
 }
