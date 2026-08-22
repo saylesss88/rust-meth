@@ -8,6 +8,77 @@ and this project adheres to
 
 ## [Unreleased]
 
+# [rust-meth-lib 0.2.4]
+
+### Added
+
+- Examples directory with working examples. To run them, clone the repo, then:
+
+```sh
+cargo run --example basic_query
+cargo run --example method_info
+cargo run --example third_party_crate   # slow on first run (downloads serde_json)
+cargo run --example fuzzy_filter
+cargo run --example go_to_definition
+cargo run --example custom_error
+cargo run --example batch_query
+```
+
+- Examples README section
+
+### Fixed
+
+- README is now accurate
+
+# [0.6.2]
+
+### Fixed
+
+- `rust-analyzer`'s default response for non-existant methods or typos
+
+- Timing issue for complex crates
+
+- clippy lints
+
+### Added
+
+- More error types to give better direction to users
+
+- Error type `TypeNotFound` indicating a typo or non-existant type
+
+
+# [0.6.1]
+
+### Refactor
+
+- Create a `parse` module to further break up analyzer
+
+- Separate analyzer.rs into it's own directory with sub-modules
+
+### Fixed
+
+- Replace panic code with error handling
+
+- Failing doc tests
+
+- Explain why `.expect` calls are always valid in `probe.rs`
+
+# [0.6.0]
+
+### Added
+
+- syntax-highlighting for ```rust blocks in output
+
+- Update dependencies
+
+# [0.5.0]
+
+### Added
+
+- `--explain <method>` functionality which shows the methods full documentation
+
+- update dependencies
+
 # [0.4.0]
 
 ### Added
