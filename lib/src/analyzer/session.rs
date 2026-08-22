@@ -72,6 +72,7 @@ pub fn query_methods(
 ///
 /// Panics if any of the spawned background threads for processing queries panics
 /// or fails to join (e.g., due to an unhandled thread fault during the LSP session).
+#[allow(clippy::needless_collect)]
 #[must_use]
 pub fn query_methods_batch<'a>(
     queries: &[(&'a str, Option<&'a str>)],

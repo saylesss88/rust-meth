@@ -1,0 +1,240 @@
+   Compiling rust-meth-lib v0.2.4 (/home/jr/dev/rust-meth/lib)
+   Compiling rust-meth v0.7.0 (/home/jr/dev/rust-meth/cli)
+    Finished `bench` profile [optimized] target(s) in 20.96s
+     Running unittests src/main.rs (target/release/build/rust-meth/6a1d23a9b853821a/out/rust_meth-6a1d23a9b853821a)
+
+running 25 tests
+test ui::interactive::tests::test_filter_methods_exact_match ... ignored
+test ui::interactive::tests::test_filter_methods_fuzzy_match ... ignored
+test ui::interactive::tests::test_filter_methods_fuzzy_ordering ... ignored
+test ui::interactive::tests::test_filter_methods_no_filter ... ignored
+test ui::interactive::tests::test_filter_methods_no_matches ... ignored
+test ui::links::tests::test_build_doc_url_generic_type ... ignored
+test ui::links::tests::test_build_doc_url_stdlib_option ... ignored
+test ui::links::tests::test_build_doc_url_stdlib_primitive ... ignored
+test ui::links::tests::test_build_doc_url_stdlib_string ... ignored
+test ui::links::tests::test_build_doc_url_third_party ... ignored
+test ui::links::tests::test_cargo_crate_name_invalid_path ... ignored
+test ui::links::tests::test_cargo_crate_name_typical_path ... ignored
+test ui::links::tests::test_cargo_crate_name_with_hyphens ... ignored
+test ui::links::tests::test_is_stdlib_path_alloc ... ignored
+test ui::links::tests::test_is_stdlib_path_cargo_crate ... ignored
+test ui::links::tests::test_is_stdlib_path_core ... ignored
+test ui::links::tests::test_is_stdlib_path_std ... ignored
+test ui::links::tests::test_is_stdlib_path_user_code ... ignored
+test ui::links::tests::test_stdlib_type_info_collections ... ignored
+test ui::links::tests::test_stdlib_type_info_common_types ... ignored
+test ui::links::tests::test_stdlib_type_info_primitives ... ignored
+test ui::links::tests::test_stdlib_type_info_unknown ... ignored
+test ui::links::tests::test_strip_version_suffix_multi_part_name ... ignored
+test ui::links::tests::test_strip_version_suffix_no_version ... ignored
+test ui::links::tests::test_strip_version_suffix_with_version ... ignored
+
+test result: ok. 0 passed; 0 failed; 25 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/release/build/rust-meth-lib/e45f28f605515c94/out/rust_meth_lib-e45f28f605515c94)
+
+running 36 tests
+test analyzer::parse::tests::parse_definition_array_form ... ignored
+test analyzer::parse::tests::parse_definition_empty_array_returns_none ... ignored
+test analyzer::parse::tests::parse_definition_empty_uri_returns_none ... ignored
+test analyzer::parse::tests::parse_definition_full_path_does_not_start_with_file_scheme ... ignored
+test analyzer::parse::tests::parse_definition_null_result_returns_none ... ignored
+test analyzer::parse::tests::parse_definition_object_form ... ignored
+test analyzer::parse::tests::parse_definition_src_path_fallback ... ignored
+test analyzer::parse::tests::parse_definition_strips_library_prefix_from_path ... ignored
+test analyzer::parse::tests::parse_methods_array_result_form ... ignored
+test analyzer::parse::tests::parse_methods_deduplicates_same_name ... ignored
+test analyzer::parse::tests::parse_methods_empty_items_returns_empty_vec ... ignored
+test analyzer::parse::tests::parse_methods_filters_non_method_kinds ... ignored
+test analyzer::parse::tests::parse_methods_no_detail_or_docs_is_none ... ignored
+test analyzer::parse::tests::parse_methods_preserves_detail_and_documentation ... ignored
+test analyzer::parse::tests::parse_methods_returns_sorted_names ... ignored
+test analyzer::parse::tests::parse_methods_skips_empty_label ... ignored
+test analyzer::parse::tests::parse_methods_third_party_label_stripped_at_paren ... ignored
+test analyzer::parse::tests::parse_methods_unexpected_shape_returns_error ... ignored
+test lsp::tests::test_completion_message_structure ... ignored
+test lsp::tests::test_definition_message_structure ... ignored
+test lsp::tests::test_initialize_message_structure ... ignored
+test lsp::tests::test_shutdown_and_exit ... ignored
+test probe::tests::completion_probe_source_has_dot_trigger ... ignored
+test probe::tests::completion_probe_with_deps_type_in_source ... ignored
+test probe::tests::definition_probe_drop_removes_temp_directory ... ignored
+test probe::tests::definition_probe_source_has_method_call ... ignored
+test probe::tests::definition_probe_with_deps_cargo_and_source_correct ... ignored
+test probe::tests::dot_col_is_seven ... ignored
+test probe::tests::dot_line_is_preamble_plus_two ... ignored
+test probe::tests::dot_line_same_for_definition_probe ... ignored
+test probe::tests::drop_removes_temp_directory ... ignored
+test probe::tests::multiple_deps_all_appear_in_cargo_toml ... ignored
+test probe::tests::no_deps_omits_dependencies_section ... ignored
+test probe::tests::root_uri_is_file_uri_not_ending_in_main_rs ... ignored
+test probe::tests::src_uri_is_file_uri_ending_in_main_rs ... ignored
+test probe::tests::with_deps_injects_dependencies_section ... ignored
+
+test result: ok. 0 passed; 0 failed; 36 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/benchmarks.rs (target/release/build/rust-meth-lib/d81fc162cc666971/out/benchmarks-d81fc162cc666971)
+Benchmarking parse_methods/10
+Benchmarking parse_methods/10: Warming up for 3.0000 s
+Benchmarking parse_methods/10: Collecting 100 samples in estimated 5.0054 s (4.1M iterations)
+Benchmarking parse_methods/10: Analyzing
+parse_methods/10        time:   [1.2212 µs 1.2225 µs 1.2236 µs]
+                        change: [−0.6594% −0.5255% −0.3958%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking parse_methods/50
+Benchmarking parse_methods/50: Warming up for 3.0000 s
+Benchmarking parse_methods/50: Collecting 100 samples in estimated 5.0255 s (586k iterations)
+Benchmarking parse_methods/50: Analyzing
+parse_methods/50        time:   [8.1787 µs 8.2330 µs 8.3005 µs]
+                        change: [−10.331% −7.2345% −4.6016%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking parse_methods/100
+Benchmarking parse_methods/100: Warming up for 3.0000 s
+Benchmarking parse_methods/100: Collecting 100 samples in estimated 5.0710 s (303k iterations)
+Benchmarking parse_methods/100: Analyzing
+parse_methods/100       time:   [16.643 µs 16.668 µs 16.695 µs]
+                        change: [−3.1002% −2.7238% −2.2760%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+Benchmarking parse_methods/300
+Benchmarking parse_methods/300: Warming up for 3.0000 s
+Benchmarking parse_methods/300: Collecting 100 samples in estimated 5.1466 s (91k iterations)
+Benchmarking parse_methods/300: Analyzing
+parse_methods/300       time:   [56.537 µs 56.585 µs 56.642 µs]
+                        change: [+0.1289% +0.5325% +1.0066%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Benchmarking parse_definition
+Benchmarking parse_definition: Warming up for 3.0000 s
+Benchmarking parse_definition: Collecting 100 samples in estimated 5.0001 s (46M iterations)
+Benchmarking parse_definition: Analyzing
+parse_definition        time:   [108.39 ns 108.86 ns 109.40 ns]
+                        change: [+4.8999% +5.3473% +5.8324%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Benchmarking lsp_messages/initialize
+Benchmarking lsp_messages/initialize: Warming up for 3.0000 s
+Benchmarking lsp_messages/initialize: Collecting 100 samples in estimated 5.0021 s (10.0M iterations)
+Benchmarking lsp_messages/initialize: Analyzing
+lsp_messages/initialize time:   [499.23 ns 500.00 ns 500.86 ns]
+                        change: [+5.4237% +5.8101% +6.2450%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking lsp_messages/completion
+Benchmarking lsp_messages/completion: Warming up for 3.0000 s
+Benchmarking lsp_messages/completion: Collecting 100 samples in estimated 5.0010 s (11M iterations)
+Benchmarking lsp_messages/completion: Analyzing
+lsp_messages/completion time:   [433.31 ns 433.70 ns 434.15 ns]
+                        change: [+24.285% +24.729% +25.348%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking lsp_messages/definition
+Benchmarking lsp_messages/definition: Warming up for 3.0000 s
+Benchmarking lsp_messages/definition: Collecting 100 samples in estimated 5.0017 s (14M iterations)
+Benchmarking lsp_messages/definition: Analyzing
+lsp_messages/definition time:   [359.69 ns 360.55 ns 361.54 ns]
+                        change: [+33.047% +33.595% +34.216%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking probe_creation/inferred_deps
+Benchmarking probe_creation/inferred_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/inferred_deps: Collecting 100 samples in estimated 5.2180 s (81k iterations)
+Benchmarking probe_creation/inferred_deps: Analyzing
+probe_creation/inferred_deps
+                        time:   [64.629 µs 64.782 µs 64.953 µs]
+                        change: [−0.3813% +0.0897% +0.6320%] (p = 0.72 > 0.05)
+                        No change in performance detected.
+Found 12 outliers among 100 measurements (12.00%)
+  10 (10.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_creation/stdlib_type
+Benchmarking probe_creation/stdlib_type: Warming up for 3.0000 s
+Benchmarking probe_creation/stdlib_type: Collecting 100 samples in estimated 5.2668 s (81k iterations)
+Benchmarking probe_creation/stdlib_type: Analyzing
+probe_creation/stdlib_type
+                        time:   [64.384 µs 64.515 µs 64.653 µs]
+                        change: [−2.3961% −1.4499% −0.4356%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking probe_creation/with_deps
+Benchmarking probe_creation/with_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/with_deps: Collecting 100 samples in estimated 5.2003 s (81k iterations)
+Benchmarking probe_creation/with_deps: Analyzing
+probe_creation/with_deps
+                        time:   [64.413 µs 64.548 µs 64.688 µs]
+                        change: [−3.1801% −2.5597% −1.9173%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high severe
+Benchmarking probe_creation/with_multiple_deps
+Benchmarking probe_creation/with_multiple_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/with_multiple_deps: Collecting 100 samples in estimated 5.2059 s (81k iterations)
+Benchmarking probe_creation/with_multiple_deps: Analyzing
+probe_creation/with_multiple_deps
+                        time:   [64.255 µs 64.414 µs 64.594 µs]
+                        change: [−2.4268% −1.7672% −1.0607%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking probe_definition_creation/stdlib_no_deps
+Benchmarking probe_definition_creation/stdlib_no_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/stdlib_no_deps: Collecting 100 samples in estimated 5.2856 s (81k iterations)
+Benchmarking probe_definition_creation/stdlib_no_deps: Analyzing
+probe_definition_creation/stdlib_no_deps
+                        time:   [65.666 µs 65.981 µs 66.270 µs]
+                        change: [−1.0261% −0.1849% +0.5917%] (p = 0.66 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_definition_creation/stdlib_with_deps
+Benchmarking probe_definition_creation/stdlib_with_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/stdlib_with_deps: Collecting 100 samples in estimated 5.2305 s (81k iterations)
+Benchmarking probe_definition_creation/stdlib_with_deps: Analyzing
+probe_definition_creation/stdlib_with_deps
+                        time:   [64.759 µs 64.934 µs 65.138 µs]
+                        change: [−3.9511% −1.8511% −0.3657%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_definition_creation/long_method_name_with_deps
+Benchmarking probe_definition_creation/long_method_name_with_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/long_method_name_with_deps: Collecting 100 samples in estimated 5.2181 s (81k iterations)
+Benchmarking probe_definition_creation/long_method_name_with_deps: Analyzing
+probe_definition_creation/long_method_name_with_deps
+                        time:   [64.608 µs 64.791 µs 65.005 µs]
+                        change: [−2.7203% −1.3370% −0.2743%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+

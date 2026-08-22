@@ -8,9 +8,22 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-22
+
+- version bump to use the new `rust-meth-lib` with increased performance
+
+
 # [rust-meth-lib 0.2.4]
 
 ### Added
+
+- `query_methods_batch`: queries multiple types in parallel using
+  `std::thread::scope`, one independent `rust-analyzer` subprocess per type.
+  Failures are per-type and do not abort the batch. Results are returned in
+  input order.
+- `lib/examples/`: runnable examples covering the main embedding use cases:
+  `basic_query`, `method_info`, `third_party_crate`, `fuzzy_filter`,
+  `go_to_definition`, `custom_error`, `batch_query`.
 
 - Examples directory with working examples. To run them, clone the repo, then:
 
@@ -25,6 +38,16 @@ cargo run --example batch_query
 ```
 
 - Examples README section
+
+### Changed
+
+- `query_methods` is now a thin wrapper over the internal `query_methods_inner`,
+  shared with `query_methods_batch`. No change to its public signature or behaviour.
+
+### Performance
+
+- Batch queries now run in parallel rather than sequentially. Wall time for a
+  3-type batch dropped from ~9.9s to ~5.1s on a 6-core machine.
 
 ### Fixed
 
