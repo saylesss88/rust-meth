@@ -64,7 +64,7 @@ rust-meth-lib = "0.3.0"
 | -------------- | ------------------------------------------------------------------------------------------------ |
 | `LspTransport` | Manages the stdio JSON-RPC channel to a `rust-analyzer` process                                  |
 | `Probe`        | Builds a temporary Cargo project that makes the target type available for LSP queries            |
-| `analyzer`     | High-level session orchestrator — combines `Probe` + `LspTransport` to return method completions |
+| `analyzer`     | High-level session orchestrator, combines `Probe` + `LspTransport` to return method completions |
 
 ### Basic Usage
 
@@ -72,6 +72,8 @@ rust-meth-lib = "0.3.0"
 [dependencies]
 rust-meth-lib = "0.3.0"
 ```
+
+- [rust_meth_lib docs.rs](https://docs.rs/rust-meth-lib/latest/rust_meth_lib/index.html) 
 
 **Full working Example**:
 

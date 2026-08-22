@@ -5,12 +5,117 @@
 //! The source file declares an isolated variable statement `let _x: TYPE = todo!();` followed by a target
 //! interaction point (such as `_x.` or `_x.method()`).
 //!
+//! ## Probe caching
+//!
+//! Probes are cached in-process by `(type_name, effective_deps, probe_kind)`. A cache hit skips
+//! temp-dir creation and file writes entirely. The cache holds an [`Arc`] to each [`CachedProbe`];
+//! when all references are dropped the directory is deleted automatically. Call
+//! [`cache_entries`] to inspect what is currently cached, and [`clear_probe_cache`] to evict
+//! everything immediately.
+//!
 //! When the [`Probe`] instance goes out of scope, its [`Drop`] implementation automatically deletes
-//! the entire temporary directory and its contents from the disk.
+//! the entire temporary directory and its contents from the disk, unless the entry is still held
+//! by the cache.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Arc, Mutex, OnceLock,
+    atomic::{AtomicU64, Ordering},
+};
+
+// -- Cache types --
+
+// Identifies a unique probe configuration for cache lookup.
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+struct CacheKey {
+    type_name: String,
+    /// Effective deps after `infer_dep`, so `serde_json::Value` with `deps=None`
+    /// and with `deps=Some(r#"serde_json = "*""#)` share the same cache entry.
+    effective_deps: Option<String>,
+    /// `None` for completion probes, `Some(method_name)` for definition probes.
+    method_name: Option<String>,
+}
+
+/// The heap-allocated probe data kept alive by the cache [`Arc`].
+///
+/// Deletes its directory when the last [`Arc`] is dropped (i.e. when both
+/// the cache entry and the [`Probe`] borrowing it are gone).
+#[derive(Debug)]
+struct CachedProbe {
+    dir: PathBuf,
+    src_path: PathBuf,
+    dot_line: u32,
+    dot_col: u32,
+}
+
+impl Drop for CachedProbe {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Public view of a single cache entry, returned by [`cache_entries`].
+#[derive(Debug, Clone)]
+pub struct CacheEntry {
+    /// The Rust type that was probed (e.g. `"Vec<u8>"`).
+    pub type_name: String,
+    /// The effective TOML dependency string, if any.
+    pub deps: Option<String>,
+    /// `None` for completion probes; `Some(method_name)` for definition probes.
+    pub method_name: Option<String>,
+    /// Absolute path to the cached probe directory on disk.
+    pub dir: PathBuf,
+}
+
+// -- Global cache --
+
+type Cache = Mutex<HashMap<CacheKey, Arc<CachedProbe>>>;
+
+fn global_cache() -> &'static Cache {
+    static CACHE: OnceLock<Cache> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Returns a snapshot of all probe directories currently held in the cache.
+///
+/// Useful for debugging or displaying cache state to users.
+///
+/// ## Panics
+///
+/// A poisoned mutex means the thread panicked while holding the lock, leaving
+/// the cache in an unknown state.
+#[must_use]
+pub fn cache_entries() -> Vec<CacheEntry> {
+    let cache = global_cache().lock().expect("probe cache lock poisoned");
+    cache
+        .iter()
+        .map(|(key, probe)| CacheEntry {
+            type_name: key.type_name.clone(),
+            deps: key.effective_deps.clone(),
+            method_name: key.method_name.clone(),
+            dir: probe.dir.clone(),
+        })
+        .collect()
+}
+
+/// Evicts all entries from the probe cache.
+///
+/// Each entry's directory is deleted when its [`Arc`] reference count reaches
+/// zero immediately if no [`Probe`] is currently borrowing the entry, or
+/// when the last borrowing [`Probe`] is dropped otherwise.
+///
+/// ## Panics
+///
+/// A poisoned mutex means the thread panicked while holding the lock, leaving
+/// the cache in an unknown state.
+pub fn clear_probe_cache() {
+    let mut cache = global_cache().lock().expect("probe cache lock poisoned");
+    cache.clear();
+}
+
+// -- Counter --
 
 /// Global atomic counter ensuring that concurrently generated probe projects
 /// receive unique names within the OS temporary directory.
@@ -32,16 +137,20 @@ use std::path::{Path, PathBuf};
 
 /// Represents an ephemeral Cargo project written to disk for LSP interrogation.
 ///
-/// Deletes itself automatically when dropped.
+/// Backed by a cache [`Arc<CachedProbe>`] the directory is only deleted when
+/// both the cache entry and this `Probe` are dropped.
 pub struct Probe {
-    /// The absolute path to the root directory of the temporary Cargo project.
-    pub dir: PathBuf,
-    /// The absolute path to the generated `src/main.rs` file.
-    pub src_path: PathBuf,
+    /// Shared ownership of the underlying cached probe data.
+    #[allow(dead_code)]
+    inner: Arc<CachedProbe>,
     /// The 0-indexed line number in `src/main.rs` pointing to the target interaction point (the dot trigger).
     pub dot_line: u32,
     /// The 0-indexed character/column offset pointing exactly after the dot (`_x.`) in `src/main.rs`.
     pub dot_col: u32,
+    /// The absolute path to the root directory of the temporary Cargo project.
+    pub dir: PathBuf,
+    /// The absolute path to the generated `src/main.rs` file.
+    pub src_path: PathBuf,
 }
 
 impl Probe {
@@ -80,6 +189,20 @@ impl Probe {
         Self::create_probe(type_name, Some(method_name), None)
     }
 
+    /// Creates a probe file for go-to-definition with custom dependencies.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`std::io::Error`] if the underlying project boilerplate, file buffers,
+    /// or custom dependency sections cannot be written.
+    pub fn for_definition_with_deps(
+        type_name: &str,
+        method_name: &str,
+        deps: Option<&str>,
+    ) -> std::io::Result<Self> {
+        Self::create_probe(type_name, Some(method_name), deps)
+    }
+
     /// Infers a minimal Cargo dependency string from a type path when no explicit
     /// `--deps` argument is provided.
     ///
@@ -104,21 +227,12 @@ impl Probe {
             None
         }
     }
-    /// Creates a probe file for go-to-definition with custom dependencies.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`std::io::Error`] if the underlying project boilerplate, file buffers,
-    /// or custom dependency sections cannot be written.
-    pub fn for_definition_with_deps(
-        type_name: &str,
-        method_name: &str,
-        deps: Option<&str>,
-    ) -> std::io::Result<Self> {
-        Self::create_probe(type_name, Some(method_name), deps)
-    }
 
     /// Internal probe creation logic shared by all constructors.
+    ///
+    /// Checks the global cache first. On a hit, clones the [`Arc`] and returns
+    /// immediately without touching the filesystem. On a miss, creates the probe
+    /// directory, writes the files, inserts into the cache, and returns.
     ///
     /// # Arguments
     /// * `type_name` - The Rust type to query
@@ -129,6 +243,35 @@ impl Probe {
         method_name: Option<&str>,
         deps: Option<&str>,
     ) -> std::io::Result<Self> {
+        let effective_deps = deps
+            .map(str::to_owned)
+            .or_else(|| Self::infer_dep(type_name));
+
+        let key = CacheKey {
+            type_name: type_name.to_string(),
+            effective_deps: effective_deps.clone(),
+            method_name: method_name.map(str::to_owned),
+        };
+
+        // -- Cache lookup --
+        {
+            let cache = global_cache().lock().expect("probe cache lock poisoned");
+            if let Some(cached) = cache.get(&key)
+                && cached.dir.exists()
+            {
+                let inner = Arc::clone(cached);
+                return Ok(Self {
+                    dir: inner.dir.clone(),
+                    src_path: inner.src_path.clone(),
+                    dot_line: inner.dot_line,
+                    dot_col: inner.dot_col,
+                    inner,
+                });
+            }
+            // Dir was deleted externally, fall through to recreate.
+        } // lock released before doing any I/O
+
+        // -- Cache miss: create probe on disk --
         let id = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let suffix = method_name.map_or("probe", |_| "probe-def");
         let dir =
@@ -137,19 +280,13 @@ impl Probe {
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        let effective_deps = deps
-            .map(str::to_owned)
-            .or_else(|| Self::infer_dep(type_name));
-
         let cargo_toml = effective_deps.map_or_else(
         || "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(),
         |d| format!(
             "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
         ),
     );
-
         // Build Cargo.toml with optional dependencies
-
         fs::write(dir.join("Cargo.toml"), cargo_toml)?;
 
         // Source file layout (preamble lines + fn main):
@@ -182,11 +319,26 @@ impl Probe {
             }
             eprintln!("cursor → line={dot_line} col={dot_col}");
         }
-        Ok(Self {
-            dir,
-            src_path,
+
+        let inner = Arc::new(CachedProbe {
+            dir: dir.clone(),
+            src_path: src_path.clone(),
             dot_line,
             dot_col,
+        });
+
+        // Insert into cache.
+        {
+            let mut cache = global_cache().lock().expect("probe cache lock poisoned");
+            cache.insert(key, Arc::clone(&inner));
+        }
+
+        Ok(Self {
+            inner,
+            dot_line,
+            dot_col,
+            dir,
+            src_path,
         })
     }
 
@@ -218,10 +370,10 @@ impl Probe {
     }
 }
 
+// `CachedProbe::drop` handles cleanup
+// when the Arc refcount reaches zero. Nothing to do here.
 impl Drop for Probe {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.dir);
-    }
+    fn drop(&mut self) {}
 }
 
 fn path_to_uri(path: &Path) -> String {
@@ -242,6 +394,64 @@ mod tests {
 
     fn preamble_line_count() -> u32 {
         u32::try_from(PREAMBLE.lines().count()).unwrap()
+    }
+
+    #[test]
+    fn cache_hit_returns_same_directory() {
+        clear_probe_cache();
+        let p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let p2 = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        assert_eq!(p1.dir, p2.dir, "cache hit should reuse the same directory");
+    }
+
+    #[test]
+    fn cache_miss_different_type_names() {
+        clear_probe_cache();
+        let p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let p2 = Probe::new_with_deps("String", None).unwrap();
+        assert_ne!(p1.dir, p2.dir);
+    }
+
+    #[test]
+    fn cache_miss_different_deps() {
+        clear_probe_cache();
+        let p1 = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "1.0""#)).unwrap();
+        let p2 = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "2.0""#)).unwrap();
+        assert_ne!(p1.dir, p2.dir);
+    }
+
+    #[test]
+    fn cache_entries_reflects_current_cache() {
+        clear_probe_cache();
+        let _p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        let _p2 = Probe::new_with_deps("String", None).unwrap();
+        let entries = cache_entries();
+        let names: Vec<&str> = entries.iter().map(|e| e.type_name.as_str()).collect();
+        assert!(names.contains(&"Vec<u8>"));
+        assert!(names.contains(&"String"));
+    }
+
+    #[test]
+    fn clear_probe_cache_evicts_all_entries() {
+        let _p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        clear_probe_cache();
+        assert!(cache_entries().is_empty());
+    }
+
+    #[test]
+    fn directory_persists_while_cache_holds_arc() {
+        clear_probe_cache();
+        let dir = {
+            let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
+            p.dir.clone()
+        };
+        // Probe dropped, but cache still holds the Arc — dir should still exist.
+        assert!(dir.exists(), "dir should persist while cache holds the Arc");
+        clear_probe_cache();
+        assert!(
+            !dir.exists(),
+            "dir should be deleted after cache is cleared"
+        );
     }
 
     // -- Cargo.toml generation ------------------------------------------
@@ -371,26 +581,5 @@ mod tests {
         let uri = p.root_uri();
         assert!(uri.starts_with("file://"));
         assert!(!uri.ends_with("main.rs"));
-    }
-
-    // ── cleanup ──────────────────────────────────────────────────────────────
-
-    #[test]
-    fn drop_removes_temp_directory() {
-        let dir = {
-            let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
-            assert!(p.dir.exists(), "dir should exist while probe is alive");
-            p.dir.clone()
-        };
-        assert!(!dir.exists(), "temp dir should be removed after drop");
-    }
-
-    #[test]
-    fn definition_probe_drop_removes_temp_directory() {
-        let dir = {
-            let p = Probe::for_definition_with_deps("Vec<u8>", "len", None).unwrap();
-            p.dir.clone()
-        };
-        assert!(!dir.exists());
     }
 }
