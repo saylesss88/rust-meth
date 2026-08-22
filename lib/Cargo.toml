@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth-lib"
-version = "0.2.3"
+version = "0.2.4"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -26,6 +26,28 @@ thiserror = {version = "2.0.20", default-features = false}
 
 [dev-dependencies]
 criterion = {version = "0.8.2", default-features = false}
+
+[[example]]
+name = "basic_query"
+
+[[example]]
+name = "method_info"
+
+[[example]]
+name = "third_party_crate"
+
+[[example]]
+name = "fuzzy_filter"
+
+[[example]]
+name = "go_to_definition"
+
+[[example]]
+name = "custom_error"
+
+[[example]]
+name = "batch_query"
+
 
 [[bench]]
 name = "benchmarks"
