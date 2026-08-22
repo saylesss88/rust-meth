@@ -78,11 +78,15 @@ pub fn query_methods_batch<'a>(
     ra_path: &std::path::Path,
 ) -> Vec<(&'a str, Result<Vec<Method>>)> {
     std::thread::scope(|s| {
-        queries
+        let handles: Vec<_> = queries
             .iter()
             .map(|&(type_name, deps)| {
                 s.spawn(move || (type_name, query_methods_inner(type_name, ra_path, deps)))
             })
+            .collect(); // <-- all threads spawned before any are joined
+
+        handles
+            .into_iter()
             .map(|h| h.join().expect("query thread should not panic"))
             .collect()
     })
