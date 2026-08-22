@@ -8,12 +8,35 @@ and this project adheres to
 
 ## [Unreleased]
 
+# [rust-meth-lib 0.4.0]
+
+### Added
+
+- `cache_entries() -> Vec<CacheEntry>`: returns a snapshot of all probe
+  directories currently held in the in-process cache.
+- `clear_probe_cache()`: evicts all cache entries; each directory is
+  deleted when its `Arc` refcount reaches zero.
+- `CacheEntry`: public type exposing `type_name`, `deps`, `method_name`,
+  and `dir` for each cached probe.
+
+### Changed
+
+-  `Probe` is now backed by a global `Arc`-based cache keyed by
+  `(type_name, effective_deps, probe_kind)`. Cache hits skip temp-dir
+  creation and file writes entirely. The directory is deleted when both
+  the cache entry and all borrowing `Probe` instances are dropped.
+
+
+### Performance
+
+- Probe creation: **~98% reduction** (65µs → 1.1µs) on cache hits.  
+
 ## [0.7.0] - 2026-08-22
 
 - version bump to use the new `rust-meth-lib` with increased performance
 
 
-# [rust-meth-lib 0.2.4]
+# [rust-meth-lib 0.3.0]
 
 ### Added
 
