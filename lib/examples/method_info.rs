@@ -9,7 +9,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rust-meth-lib = "0.2.4"
+//! rust-meth-lib = "0.3.0"
 //! ```
 
 use rust_meth_lib::analyzer::{Method, find_rust_analyzer, query_methods};

@@ -53,7 +53,7 @@ rust-meth/
 
 ```toml
 [dependencies]
-rust-meth-lib = "0.2.4"
+rust-meth-lib = "0.3.0"
 ```
 
 ### Key Types
@@ -68,7 +68,7 @@ rust-meth-lib = "0.2.4"
 
 ```toml
 [dependencies]
-rust-meth-lib = "0.2.4"
+rust-meth-lib = "0.3.0"
 ```
 
 **Full working Example**:

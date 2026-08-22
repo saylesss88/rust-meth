@@ -13,7 +13,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rust-meth-lib = "0.2.4"
+//! rust-meth-lib = "0.3.0"
 //! thiserror = "2"
 //! ```
 //!
