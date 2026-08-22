@@ -159,3 +159,13 @@ fn drop_removes_definition_probe_directory() {
     };
     assert!(!dir.exists());
 }
+
+#[test]
+fn repeated_query_returns_same_methods() {
+    let ra_path = find_rust_analyzer().unwrap();
+    let first = query_methods("Vec<u8>", &ra_path, None).unwrap();
+    let second = query_methods("Vec<u8>", &ra_path, None).unwrap();
+    let first_names: Vec<&str> = first.iter().map(|m| m.name.as_str()).collect();
+    let second_names: Vec<&str> = second.iter().map(|m| m.name.as_str()).collect();
+    assert_eq!(first_names, second_names);
+}
