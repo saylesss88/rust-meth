@@ -20,6 +20,8 @@ session.
 - Exposing utilities for embedding `rust-meth` workflows in other tools
 - Full working [Examples](#rust-meth-lib-examples)
 
+Please file an Issue if any problems arise.
+
 ## Workspace layout
 
 ```
