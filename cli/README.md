@@ -73,7 +73,7 @@ rust-meth <type> [filter] [flags]
 
 ```bash
 rust-meth u8 wrapping
-rust-meth '&str' splt          # fuzzy — finds split_*
+rust-meth '&str' splt          # fuzzy, finds split_*
 rust-meth 'Vec<u8>' -i         # interactive picker
 rust-meth u8 strict_shr --doc  # inline documentation
 rust-meth u8 --gd checked_add  # go-to-definition
@@ -108,7 +108,7 @@ For full flag reference and detailed examples, see the sections below.
 <a id="fuzzy-filter"></a>
 ## Fuzzy filter
 
-The filter argument uses fuzzy matching — typos and partials work:
+The filter argument uses fuzzy matching typos and partials work:
 
 ```sh
 rust-meth u8 wrapng        # finds all wrapping_* methods
@@ -191,8 +191,13 @@ Use `--deps` to pin a version or add features:
 
 ```sh
 rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
-rust-meth 'reqwest::Client' --deps 'reqwest = "0.11"
-tokio = { version = "1", features = ["full"] }'
+rust-meth 'reqwest::Client' --deps 'reqwest = "0.11"'
+
+# `reqwest` by default pulls in the full async client, blocking client is much lighter
+# and faster
+rust-meth 'reqwest::blocking::Client' --deps 'reqwest = { version = "0.11", features = ["blocking"] }'
+
+rust-meth 'tokio::net::TcpListener' --deps 'tokio = { version = "1", features = ["net"] }'
 ```
 
 > [!NOTE]
@@ -204,7 +209,7 @@ tokio = { version = "1", features = ["full"] }'
 Enumerate methods on a type from any crate, including its optional features:
 
 ```bash
-rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["full"] }'
+rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["net"] }'
 ```
 
 ```bash
@@ -215,7 +220,7 @@ rust-meth: methods on `tokio::net::TcpStream`
   into_split          fn(self) -> (OwnedReadHalf, OwnedWriteHalf)
   ...
   writable            async fn(&self) -> Result<(), Error>
-32 method(s)
+31 method(s)
 ```
 
 `--deps` accepts any valid `Cargo.toml` dependency line, so you can pin versions,
@@ -226,7 +231,7 @@ real project.
 ## Explain a method
 
 Pass `--explain <method>` to print the full documentation for a specific method
-directly in the terminal — no browser required:
+directly in the terminal, no browser required:
 
 ```sh
 rust-meth 'Result<u8, String>' --explain unwrap_unchecked

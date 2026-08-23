@@ -56,7 +56,10 @@ name = "probe_cache"
 name = "filter_methods"
 
 [[example]]
-name = "builder_query"
+name = "builder_run"
+
+[[example]]
+name = "builder_definitions"
 
 [[bench]]
 name = "benchmarks"

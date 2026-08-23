@@ -17,9 +17,7 @@ use rust_meth_lib::analyzer::{Method, find_rust_analyzer, query_methods};
 fn main() -> rust_meth_lib::error::Result<()> {
     let ra_path = find_rust_analyzer()?;
 
-    // String has good documentation coverage in the stdlib, making it a
-    // useful type for demonstrating the `documentation` field.
-    let methods = query_methods("String", &ra_path, None)?;
+    let methods = query_methods("Cell<u8>", &ra_path, None)?;
 
     // Only print methods that have at least a signature. Methods with
     // neither detail nor docs still exist in the list, they're just
@@ -30,7 +28,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
         .collect();
 
     println!(
-        "{} of {} String methods have signatures or docs:\n",
+        "{} of {} Cell<u8> methods have signatures or docs:\n",
         documented.len(),
         methods.len()
     );
@@ -43,7 +41,6 @@ fn main() -> rust_meth_lib::error::Result<()> {
             println!("fn {} (no signature)", method.name);
         }
 
-        // Rustdoc, if present: often multi-line, indent it for readability.
         if let Some(doc) = &method.documentation {
             // Just the first sentence to keep output manageable.
             let first_line = doc.lines().next().unwrap_or("").trim();

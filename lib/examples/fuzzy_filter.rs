@@ -33,7 +33,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
     println!("All methods containing \"{query}\":");
     println!("{}", "-".repeat(40));
 
-    // ── 1. Simple substring filter ───────────────────────────────────────────
+    // -- 1. Simple substring filter --
     let matched: Vec<&Method> = methods.iter().filter(|m| m.name.contains(query)).collect();
 
     for m in &matched {
@@ -42,7 +42,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
 
     println!();
 
-    // ── 2. Signature grep ────────────────────────────────────────────────────
+    // -- 2. Signature grep --
     //
     // Filter on the `detail` field to find methods with a specific return type.
     // Useful when you want to narrow results by type, not just name.
@@ -68,7 +68,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
 
     println!();
 
-    // ── 3. Simple ranked scorer ──────────────────────────────────────────────
+    // -- 3. Simple ranked scorer --
     //
     // Score each method by how closely it matches the query: prefix match
     // scores higher than substring match, exact match highest. This gives

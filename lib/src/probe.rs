@@ -8,7 +8,7 @@
 //! ## Probe caching
 //!
 //! Probes are cached in-process by `(type_name, effective_deps, probe_kind)`. A cache hit skips
-//! temp-dir creation and file writes entirely. The cache holds an [`Arc`] to each [`CachedProbe`];
+//! temp-dir creation and file writes entirely. The cache holds an [`Arc`] to each `CachedProbe`;
 //! when all references are dropped the directory is deleted automatically. Call
 //! [`cache_entries`] to inspect what is currently cached, and [`clear_probe_cache`] to evict
 //! everything immediately.

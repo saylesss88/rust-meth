@@ -1,7 +1,7 @@
 //! High-level builder API for querying `rust-analyzer`.
 //!
-//! [`MethodQuery`] provides a chainable interface over [`query_methods`] and
-//! [`query_definition`], keeping call sites readable when multiple options are
+//! [`MethodQuery`] provides a chainable interface over `query_methods` and
+//! `query_definition`, keeping call sites readable when multiple options are
 //! involved. [`filter_methods`] is also available as a standalone function for
 //! callers who already have a [`Vec<Method>`] and just need filtering.
 //!

@@ -40,7 +40,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
     // All three queries run in parallel. Results come back in input order.
     let batch_results = query_methods_batch(queries, &ra_path);
 
-    // ── Partition into successes and failures ────────────────────────────────
+    // -- Partition into successes and failures --
 
     let mut results: BTreeMap<&str, BTreeSet<String>> = BTreeMap::new();
     let mut failures: Vec<(&str, RustMethError)> = Vec::new();
@@ -61,7 +61,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
 
     println!();
 
-    // ── Methods common to all successfully queried types ─────────────────────
+    // -- Methods common to all successfully queried types --
 
     if results.len() >= 2 {
         let mut common = results.values().next().cloned().unwrap_or_default();
@@ -80,7 +80,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
         println!();
     }
 
-    // ── Per-type unique methods ──────────────────────────────────────────────
+    // -- Per-type unique methods --
     //
     // What does each type have that none of the others do?
 
@@ -107,7 +107,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
         println!();
     }
 
-    // ── Summary of failures ──────────────────────────────────────────────────
+    // -- Summary of failures --
 
     if !failures.is_empty() {
         println!("Failed queries:");

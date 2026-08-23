@@ -100,6 +100,29 @@ The exact list returned varies by toolchain.
 > workflow.  
 > The CLI interface is maintained in a separate crate.
 
+### Builder API
+
+[`MethodQuery`](examples/builder_run.rs) provides a chainable interface over
+`query_methods` and `filter_methods`. Use `.filter()` to narrow results by
+match quality (exact > prefix > substring), and `.run_with_definitions()` to
+also resolve source locations.
+
+```rust
+// Query + filter
+MethodQuery::new("String")
+    .filter("push")
+    .run(&ra_path)?;
+
+// Query + filter + source locations
+MethodQuery::new("serde_json::Value")
+    .deps(r#"serde_json = "1.0""#)
+    .filter("as_str")
+    .run_with_definitions(&ra_path)?;
+```
+
+See [`builder_run.rs`](examples/builder_run.rs) and
+[`builder_definitions.rs`](examples/builder_definitions.rs) for full examples.
+
 ## Error Handling
 
 The library uses a single
@@ -154,6 +177,12 @@ snippet.
 rustup component add rust-analyzer
 ```
 
+Clone the repo:
+
+```sh
+git clone https://github.com/saylesss88/rust-meth.git
+```
+
 ## Running the Examples
 
 ```sh
@@ -168,171 +197,5 @@ cargo run --example batch_query
 
 ## Examples
 
-### [`basic_query.rs`](examples/basic_query.rs)
+You can find the examples in the [rust-meth-lib mdBook](https://saylesss88.github.io/rust-meth-lib/)
 
-The minimal end-to-end path: `find_rust_analyzer` → `query_methods` → print
-method names. Start here.
-
-```
-Methods on Vec<u8> (73 total):
-  append
-  as_mut_ptr
-  as_mut_slice
-  ...
-```
-
----
-
-### [`method_info.rs`](examples/method_info.rs)
-
-Working with `Method::detail` (full signature) and `Method::documentation`
-(`rustdoc`). Both are `Option<String>`, this example shows how to handle the
-cases where rust-analyzer doesn't return them.
-
-```
-fn push_str  →  pub fn push_str(&mut self, string: &str)
-  doc: Appends a given string slice onto the end of this `String`.
-```
-
----
-
-### [`third_party_crate.rs`](examples/third_party_crate.rs)
-
-Querying types from external crates by passing a raw TOML deps snippet.
-Shows both single-crate and multi-crate dependency strings.
-
-```rust
-// Single dep
-let deps = r#"serde_json = "1.0""#;
-query_methods("serde_json::Value", &ra_path, Some(deps))?;
-
-// Multiple deps (newline-separated TOML)
-let deps = "serde = { version = \"1.0\", features = [\"derive\"] }\nserde_json = \"1.0\"";
-query_methods("serde_json::Map<String, serde_json::Value>", &ra_path, Some(deps))?;
-```
-
-> [!NOTE]
-> The first query against a crate version requires Cargo to download
-> and compile it inside the ephemeral probe project. Expect 10–30 seconds on a
-> cold cache.
-
----
-
-### [`fuzzy_filter.rs`](examples/fuzzy_filter.rs)
-
-Using `Vec<Method>` as a data source for your own search UI. Demonstrates
-three patterns: substring filter, signature grep (filter on return type), and
-a simple ranked scorer. The starting point for building a TUI or editor plugin
-on top of the library.
-
-```
-Ranked results for "get":
-----------------------------------------
-  [exact ]  get
-  [prefix]  get_disjoint_mut
-  [prefix]  get_disjoint_unchecked_mut
-  [prefix]  get_key_value
-  [prefix]  get_mut
-```
-
----
-
-### [`go_to_definition.rs`](examples/go_to_definition.rs)
-
-Resolving source file locations with `query_definition`. Returns a
-`Definition` with `path` (display-friendly), `full_path` (absolute, for
-opening files), and `line` (0-indexed). Returns `Ok(None)` when no source
-location is available, not an error.
-
-```
-Vec<u8>::push  →  library/alloc/src/vec/mod.rs:1878
-       full: /home/user/.rustup/toolchains/stable-x86_64.../library/alloc/src/vec/mod.rs
-```
-
----
-
-### [`custom_error.rs`](examples/custom_error.rs)
-
-Wrapping `RustMethError` into a caller-defined `thiserror` enum. Shows how to
-intercept specific variants (`TypeNotFound`, `RustAnalyzerNotFound`) for
-custom messages while falling through to a generic wrapper for everything else.
-
-```rust
-impl From<RustMethError> for AppError {
-    fn from(err: RustMethError) -> Self {
-        match err {
-            RustMethError::RustAnalyzerNotFound => AppError::RustAnalyzerMissing,
-            RustMethError::TypeNotFound { type_name, .. } => AppError::UnknownType { type_name },
-            other => AppError::QueryFailed(other),
-        }
-    }
-}
-```
-
----
-
-### [`batch_query.rs`](examples/batch_query.rs)
-
-Querying multiple types and comparing their method sets. Demonstrates
-per-type error handling (one failure doesn't abort the batch), finding the
-intersection of methods common to all types, and identifying methods unique
-to each type.
-
-```
-Methods common to all 3 types (12 total):
-  append
-  clamp
-  clear
-  clone
-  ...
-
-Vec<u8> unique methods (156):
-  align_to
-  align_to_mut
-  ...
-```
-
-### [`probe_cache`](examples/probe_cache.rs)
-
-`query_methods_batch` populates the cache as a side effect of running queries.
-`cache_entries` lets you inspect what's currently cached. Useful for debugging,
-logging, or displaying cache state in your own tool. `clear_probe_cache` evicts
-all entries; each directory is deleted when its `Arc` refcount reaches zero.
-
-```
-Cache before queries: 0 entries
-
-Running batch query...
-  Vec<u8>: 229 methods
-  String: 145 methods
-  HashMap<String, u32>: 43 methods
-
-Cache after batch (3 entries):
-type                           deps                 kind         dir
-------------------------------------------------------------------------------------------
-HashMap<String, u32>           none                 completion   /tmp/rust-meth-probe-23708-2
-String                         none                 completion   /tmp/rust-meth-probe-23708-1
-Vec<u8>                        none                 completion   /tmp/rust-meth-probe-23708-0
-
-All probe dirs exist on disk: true
-
-Cache cleared.
-Cache after clear: 0 entries
-Any probe dirs still on disk: false
-```
-
-### [`filter_methods`](examples/filter_methods.rs)
-
-Filters and ranks methods against a query string without re-querying `rust-analyzer`.
-Useful when you already have a `Vec<Method>` and want to narrow results.
-
-Methods on `HashMap<String, u32>` whose names match `"get"`, ranked by match
-quality:
-
-```
-get
-get_disjoint_mut
-get_disjoint_unchecked_mut
-get_key_value
-get_mut
-```

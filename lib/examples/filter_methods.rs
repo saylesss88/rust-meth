@@ -22,6 +22,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
     let ra_path = find_rust_analyzer()?;
     let methods = query_methods("HashMap<String, u32>", &ra_path, None)?;
     let filtered = filter_methods(&methods, "get");
+    println!("HashMap<String, u32> methods matching \"get\":\n");
     for m in filtered {
         println!("{}", m.name);
     }
