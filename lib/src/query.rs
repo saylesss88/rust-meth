@@ -138,37 +138,20 @@ pub fn query_definition_for_methods(
     deps: Option<&str>,
     ra_path: &std::path::Path,
 ) -> Result<Vec<MethodResult>> {
-    const MAX_CONCURRENT: usize = 4;
-
-    let mut all_results: Vec<Result<MethodResult>> = Vec::with_capacity(methods.len());
-
-    for chunk in methods.chunks(MAX_CONCURRENT) {
-        let chunk_results: Vec<Result<MethodResult>> = std::thread::scope(|s| {
-            let handles: Vec<_> = chunk
-                .iter()
-                .map(|method| {
-                    s.spawn(move || {
-                        let definition = query_definition(type_name, &method.name, ra_path, deps)?;
-                        Ok(MethodResult {
-                            method: Method {
-                                name: method.name.clone(),
-                                detail: method.detail.clone(),
-                                documentation: method.documentation.clone(),
-                            },
-                            definition,
-                        })
-                    })
-                })
-                .collect();
-            handles
-                .into_iter()
-                .map(|h| h.join().expect("definition query thread should not panic"))
-                .collect()
-        });
-        all_results.extend(chunk_results);
-    }
-
-    all_results.into_iter().collect()
+    methods
+        .iter()
+        .map(|method| {
+            let definition = query_definition(type_name, &method.name, ra_path, deps)?;
+            Ok(MethodResult {
+                method: Method {
+                    name: method.name.clone(),
+                    detail: method.detail.clone(),
+                    documentation: method.documentation.clone(),
+                },
+                definition,
+            })
+        })
+        .collect()
 }
 
 /// A chainable builder for method queries.
@@ -283,10 +266,16 @@ impl<'a> MethodQuery<'a> {
     }
 
     /// Executes the query, applies the filter, and resolves source locations
-    /// for each matching method in parallel.
+    /// for each matching method sequentially.
     ///
     /// Methods where `rust-analyzer` has no source location are included with
     /// `definition: None` rather than being silently dropped.
+    ///
+    /// > **Note:** For third-party crate types, each definition query requires
+    /// > Cargo to resolve dependencies inside an ephemeral probe project. With
+    /// > many matching methods this can be slow. Use a tight [`filter`](MethodQuery::filter)
+    /// > to limit the number of definition queries, or prefer stdlib types where
+    /// > Cargo resolution is not required.
     ///
     /// # Errors
     ///

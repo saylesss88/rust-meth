@@ -42,12 +42,17 @@ fn main() -> rust_meth_lib::error::Result<()> {
     // run_with_definitions fetches source locations for each filtered method
     // in parallel. Methods with no resolvable location are included with
     // definition: None rather than being dropped.
-
-    let results = MethodQuery::new("Vec<u8>")
-        .filter("drain")
+    // let results = MethodQuery::new("serde_json::Value")
+    //     .deps(r#"serde_json = "1.0""#)
+    //     .filter("as_")
+    //     .run_with_definitions(&ra_path)?;
+    //
+    let results = MethodQuery::new("serde_json::Value")
+        .deps(r#"serde_json = "1.0""#)
+        .filter("as_str") // exact match, only one method
         .run_with_definitions(&ra_path)?;
 
-    println!("Vec<u8> methods matching \"drain\" with source locations:");
+    println!("serde_json::Value methods matching \"as_\" with source locations:");
     for r in &results {
         match &r.definition {
             Some(def) => println!("  {}  →  {}:{}", r.method.name, def.path, def.line + 1),
