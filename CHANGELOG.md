@@ -12,6 +12,9 @@ and this project adheres to
 
 ### Added
 
+- `lib/examples/probe_cache.rs`: demonstrates the in-process probe cache;
+  shows `cache_entries` and `clear_probe_cache` usage before and after a
+  `query_methods_batch` call.
 - `cache_entries() -> Vec<CacheEntry>`: returns a snapshot of all probe
   directories currently held in the in-process cache.
 - `clear_probe_cache()`: evicts all cache entries; each directory is
