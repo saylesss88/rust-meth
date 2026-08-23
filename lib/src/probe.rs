@@ -25,7 +25,204 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
-// -- Cache types --
+// -- Hashing --
+//
+// Simple FNV-1a hash
+
+fn fnv1a(data: &str) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in data.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    hash
+}
+
+fn cache_key_hash(
+    type_name: &str,
+    effective_deps: Option<&str>,
+    method_name: Option<&str>,
+    ra_version: &str,
+) -> String {
+    let canonical = format!(
+        "type={}\ndeps={}\nmethod={}\nra={}\nlib={}",
+        type_name,
+        effective_deps.unwrap_or(""),
+        method_name.unwrap_or(""),
+        ra_version,
+        env!("CARGO_PKG_VERSION"),
+    );
+    format!("{:016x}", fnv1a(&canonical))
+}
+
+// ── Persistent cache ──────────────────────────────────────────────────────────
+
+/// Metadata stored alongside each persistent probe directory.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct ProbeMeta {
+    type_name: String,
+    effective_deps: Option<String>,
+    method_name: Option<String>,
+    ra_version: String,
+    lib_version: String,
+    dot_line: u32,
+    dot_col: u32,
+}
+
+/// Returns the root directory of the persistent probe cache.
+///
+/// Respects `$XDG_CACHE_HOME` if set, otherwise falls back to `~/.cache`.
+/// The full path is `$XDG_CACHE_HOME/rust-meth/probes/`.
+#[must_use]
+pub fn persistent_cache_dir() -> PathBuf {
+    let base = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(std::env::temp_dir)
+                .join(".cache")
+        });
+    base.join("rust-meth").join("probes")
+}
+
+/// Public view of a single persistent cache entry.
+#[derive(Debug, Clone)]
+pub struct PersistentCacheEntry {
+    /// The Rust type that was probed.
+    pub type_name: String,
+    /// The effective TOML dependency string, if any.
+    pub deps: Option<String>,
+    /// `None` for completion probes; `Some(method_name)` for definition probes.
+    pub method_name: Option<String>,
+    /// The `rust-analyzer` version this entry was created with.
+    pub ra_version: String,
+    /// The `rust-meth-lib` version this entry was created with.
+    pub lib_version: String,
+    /// Absolute path to the cached probe directory on disk.
+    pub dir: PathBuf,
+}
+
+/// Returns all entries currently in the persistent probe cache.
+///
+/// Reads `meta.json` from each subdirectory of [`persistent_cache_dir`].
+/// Entries whose `meta.json` is missing or malformed are silently skipped.
+#[must_use]
+pub fn persistent_cache_entries() -> Vec<PersistentCacheEntry> {
+    let dir = persistent_cache_dir();
+    let Ok(read_dir) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    read_dir
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let probe_dir = entry.path();
+            let meta_path = probe_dir.join("meta.json");
+            let meta_bytes = fs::read(&meta_path).ok()?;
+            let meta: ProbeMeta = serde_json::from_slice(&meta_bytes).ok()?;
+            Some(PersistentCacheEntry {
+                type_name: meta.type_name,
+                deps: meta.effective_deps,
+                method_name: meta.method_name,
+                ra_version: meta.ra_version,
+                lib_version: meta.lib_version,
+                dir: probe_dir,
+            })
+        })
+        .collect()
+}
+
+/// Removes all entries from the persistent probe cache.
+///
+/// Deletes the entire [`persistent_cache_dir`] and its contents.
+///
+/// # Errors
+///
+/// Returns an error if the directory cannot be removed.
+pub fn clear_persistent_cache() -> std::io::Result<()> {
+    let dir = persistent_cache_dir();
+    if dir.exists() {
+        fs::remove_dir_all(&dir)?;
+    }
+    Ok(())
+}
+
+fn load_persistent_probe(
+    type_name: &str,
+    effective_deps: Option<&str>,
+    method_name: Option<&str>,
+    ra_version: &str,
+) -> Option<(PathBuf, PathBuf, u32, u32)> {
+    let hash = cache_key_hash(type_name, effective_deps, method_name, ra_version);
+    let probe_dir = persistent_cache_dir().join(&hash);
+    if !probe_dir.exists() {
+        return None;
+    }
+    let meta_bytes = fs::read(probe_dir.join("meta.json")).ok()?;
+    let meta: ProbeMeta = serde_json::from_slice(&meta_bytes).ok()?;
+    let src_path = probe_dir.join("src").join("main.rs");
+    if !src_path.exists() || !probe_dir.join("Cargo.toml").exists() {
+        return None;
+    }
+    Some((probe_dir, src_path, meta.dot_line, meta.dot_col))
+}
+
+fn save_persistent_probe(
+    probe_dir: &Path,
+    type_name: &str,
+    effective_deps: Option<&str>,
+    method_name: Option<&str>,
+    ra_version: &str,
+    dot_line: u32,
+    dot_col: u32,
+) {
+    let hash = cache_key_hash(type_name, effective_deps, method_name, ra_version);
+    let cache_dir = persistent_cache_dir().join(&hash);
+    let cache_src_dir = cache_dir.join("src");
+
+    let save = || -> std::io::Result<()> {
+        fs::create_dir_all(&cache_src_dir)?;
+        fs::copy(probe_dir.join("Cargo.toml"), cache_dir.join("Cargo.toml"))?;
+        fs::copy(
+            probe_dir.join("src").join("main.rs"),
+            cache_src_dir.join("main.rs"),
+        )?;
+        let meta = ProbeMeta {
+            type_name: type_name.to_string(),
+            effective_deps: effective_deps.map(str::to_owned),
+            method_name: method_name.map(str::to_owned),
+            ra_version: ra_version.to_string(),
+            lib_version: env!("CARGO_PKG_VERSION").to_string(),
+            dot_line,
+            dot_col,
+        };
+        fs::write(
+            cache_dir.join("meta.json"),
+            serde_json::to_vec_pretty(&meta)?,
+        )?;
+        Ok(())
+    };
+
+    if let Err(e) = save() {
+        if std::env::var("RUST_METH_DEBUG").is_ok() {
+            eprintln!("[debug] failed to save persistent probe: {e}");
+        }
+    }
+}
+
+/// Queries the `rust-analyzer` binary for its version string.
+fn ra_version(ra_path: &Path) -> String {
+    std::process::Command::new(ra_path)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+// -- In-process Cache types --
 
 // Identifies a unique probe configuration for cache lookup.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -48,11 +245,14 @@ struct CachedProbe {
     src_path: PathBuf,
     dot_line: u32,
     dot_col: u32,
+    owned: bool,
 }
 
 impl Drop for CachedProbe {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.dir);
+        if self.owned {
+            let _ = fs::remove_dir_all(&self.dir);
+        }
     }
 }
 
@@ -79,8 +279,6 @@ fn global_cache() -> &'static Cache {
 }
 
 /// Returns a snapshot of all probe directories currently held in the cache.
-///
-/// Useful for debugging or displaying cache state to users.
 ///
 /// ## Panics
 ///
@@ -161,7 +359,7 @@ impl Probe {
     /// Returns an [`std::io::Error`] if creating the underlying probe project directory
     /// or writing its files fails.
     pub fn new(type_name: &str) -> std::io::Result<Self> {
-        Self::create_probe(type_name, None, None)
+        Self::create_probe(type_name, None, None, None)
     }
 
     /// Creates a new probe project with optional dependencies (for 3rd party crates).
@@ -175,7 +373,20 @@ impl Probe {
     /// Returns an [`std::io::Error`] if generating the probe files or writing the dependency
     /// configuration fails.
     pub fn new_with_deps(type_name: &str, deps: Option<&str>) -> std::io::Result<Self> {
-        Self::create_probe(type_name, None, deps)
+        Self::create_probe(type_name, None, deps, None)
+    }
+
+    /// Creates a probe project with optional dependencies and persistent caching.
+    ///
+    /// Passing `ra_path` enables the persistent cache — the probe directory is saved
+    /// to `$XDG_CACHE_HOME/rust-meth/probes/` and reused across process restarts,
+    /// skipping Cargo resolution on subsequent calls.
+    pub fn new_with_deps_cached(
+        type_name: &str,
+        deps: Option<&str>,
+        ra_path: &Path,
+    ) -> std::io::Result<Self> {
+        Self::create_probe(type_name, None, deps, Some(ra_path))
     }
 
     /// Creates a probe file with `_x.METHOD_NAME()` for go-to-definition queries.
@@ -186,7 +397,7 @@ impl Probe {
     /// Returns an [`std::io::Error`] if the workspace initialization or file creation fails
     /// on disk.
     pub fn for_definition(type_name: &str, method_name: &str) -> std::io::Result<Self> {
-        Self::create_probe(type_name, Some(method_name), None)
+        Self::create_probe(type_name, Some(method_name), None, None)
     }
 
     /// Creates a probe file for go-to-definition with custom dependencies.
@@ -200,7 +411,17 @@ impl Probe {
         method_name: &str,
         deps: Option<&str>,
     ) -> std::io::Result<Self> {
-        Self::create_probe(type_name, Some(method_name), deps)
+        Self::create_probe(type_name, Some(method_name), deps, None)
+    }
+
+    /// Creates a go-to-definition probe with custom dependencies and persistent caching.
+    pub fn for_definition_with_deps_cached(
+        type_name: &str,
+        method_name: &str,
+        deps: Option<&str>,
+        ra_path: &Path,
+    ) -> std::io::Result<Self> {
+        Self::create_probe(type_name, Some(method_name), deps, Some(ra_path))
     }
 
     /// Infers a minimal Cargo dependency string from a type path when no explicit
@@ -242,6 +463,7 @@ impl Probe {
         type_name: &str,
         method_name: Option<&str>,
         deps: Option<&str>,
+        ra_path: Option<&Path>,
     ) -> std::io::Result<Self> {
         let effective_deps = deps
             .map(str::to_owned)
@@ -253,7 +475,7 @@ impl Probe {
             method_name: method_name.map(str::to_owned),
         };
 
-        // -- Cache lookup --
+        // -- In-process cache --
         {
             let cache = global_cache().lock().expect("probe cache lock poisoned");
             if let Some(cached) = cache.get(&key)
@@ -271,6 +493,37 @@ impl Probe {
             // Dir was deleted externally, fall through to recreate.
         } // lock released before doing any I/O
 
+        // -- Persistent cache --
+
+        if let Some(ra) = ra_path {
+            let version = ra_version(ra);
+            if let Some((dir, src_path, dot_line, dot_col)) =
+                load_persistent_probe(type_name, effective_deps.as_deref(), method_name, &version)
+            {
+                if std::env::var("RUST_METH_DEBUG").is_ok() {
+                    eprintln!("[debug] persistent cache hit: {}", dir.display());
+                }
+                let inner = Arc::new(CachedProbe {
+                    dir: dir.clone(),
+                    src_path: src_path.clone(),
+                    dot_line,
+                    dot_col,
+                    owned: false,
+                });
+                {
+                    let mut cache = global_cache().lock().expect("probe cache lock poisoned");
+                    cache.insert(key, Arc::clone(&inner));
+                }
+                return Ok(Self {
+                    inner,
+                    dot_line,
+                    dot_col,
+                    dir,
+                    src_path,
+                });
+            }
+        }
+
         // -- Cache miss: create probe on disk --
         let id = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let suffix = method_name.map_or("probe", |_| "probe-def");
@@ -280,7 +533,7 @@ impl Probe {
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        let cargo_toml = effective_deps.map_or_else(
+        let cargo_toml = effective_deps.as_deref().map_or_else(
         || "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(),
         |d| format!(
             "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
@@ -289,13 +542,6 @@ impl Probe {
         // Build Cargo.toml with optional dependencies
         fs::write(dir.join("Cargo.toml"), cargo_toml)?;
 
-        // Source file layout (preamble lines + fn main):
-        //
-        //   0..N  preamble use statements
-        //   N+0:  fn main() {
-        //   N+1:      let _x: TYPE = todo!();
-        //   N+2:      _x.         <-- completion trigger after the dot (or _x.METHOD() for definition)
-        //   N+3:  }
         let preamble_lines = u32::try_from(PREAMBLE.lines().count())
             .expect("PREAMBLE is a fixed compile-time constant, line count always fits u32");
 
@@ -320,11 +566,26 @@ impl Probe {
             eprintln!("cursor → line={dot_line} col={dot_col}");
         }
 
+        // Save to persistent cache if ra_path was provided.
+        if let Some(ra) = ra_path {
+            let version = ra_version(ra);
+            save_persistent_probe(
+                &dir,
+                type_name,
+                effective_deps.as_deref(),
+                method_name,
+                &version,
+                dot_line,
+                dot_col,
+            );
+        }
+
         let inner = Arc::new(CachedProbe {
             dir: dir.clone(),
             src_path: src_path.clone(),
             dot_line,
             dot_col,
+            owned: true,
         });
 
         // Insert into cache.
@@ -455,6 +716,65 @@ mod tests {
             !dir.exists(),
             "dir should be deleted after cache is cleared"
         );
+    }
+
+    // -- persistent cache --
+
+    #[test]
+    fn persistent_cache_dir_ends_with_rust_meth_probes() {
+        let dir = persistent_cache_dir();
+        assert!(dir.ends_with("rust-meth/probes"));
+    }
+
+    #[test]
+    fn cache_key_hash_differs_by_type() {
+        let h1 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 1.0");
+        let h2 = cache_key_hash("String", None, None, "rust-analyzer 1.0");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn cache_key_hash_differs_by_ra_version() {
+        let h1 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 1.0");
+        let h2 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 2.0");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn cache_key_hash_differs_by_deps() {
+        let h1 = cache_key_hash(
+            "serde_json::Value",
+            Some(r#"serde_json = "1.0""#),
+            None,
+            "ra",
+        );
+        let h2 = cache_key_hash(
+            "serde_json::Value",
+            Some(r#"serde_json = "2.0""#),
+            None,
+            "ra",
+        );
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn meta_json_round_trips() {
+        let meta = ProbeMeta {
+            type_name: "Vec<u8>".to_string(),
+            effective_deps: None,
+            method_name: None,
+            ra_version: "rust-analyzer 1.80.0".to_string(),
+            lib_version: "0.4.0".to_string(),
+            dot_line: 11,
+            dot_col: 7,
+        };
+        let json = serde_json::to_vec_pretty(&meta).unwrap();
+        let back: ProbeMeta = serde_json::from_slice(&json).unwrap();
+        assert_eq!(back.type_name, "Vec<u8>");
+        assert_eq!(back.dot_line, 11);
+        assert_eq!(back.dot_col, 7);
+        assert_eq!(back.ra_version, "rust-analyzer 1.80.0");
+        assert!(back.effective_deps.is_none());
     }
 
     // -- Cargo.toml generation ------------------------------------------

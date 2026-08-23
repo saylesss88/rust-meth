@@ -99,7 +99,7 @@ fn query_methods_inner(
     ra_path: &std::path::Path,
     deps: Option<&str>,
 ) -> Result<Vec<Method>> {
-    let probe = Probe::new_with_deps(type_name, deps)?;
+    let probe = Probe::new_with_deps_cached(type_name, deps, ra_path)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -204,7 +204,7 @@ pub fn query_definition(
     ra_path: &std::path::Path,
     deps: Option<&str>,
 ) -> Result<Option<Definition>> {
-    let probe = Probe::for_definition_with_deps(type_name, method_name, deps)?;
+    let probe = Probe::for_definition_with_deps_cached(type_name, method_name, deps, ra_path)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
