@@ -53,7 +53,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
     let mut entries = cache_entries();
     entries.sort_by(|a, b| a.type_name.cmp(&b.type_name));
     println!("Cache after batch ({} entries):", entries.len());
-    println!("{:<30} {:<20} {:<12} {}", "type", "deps", "kind", "dir");
+    println!("{:<30} {:<20} {:<12} dir", "type", "deps", "kind");
     println!("{}", "-".repeat(90));
     for entry in &entries {
         let deps = entry.deps.as_deref().unwrap_or("none");

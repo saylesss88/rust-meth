@@ -389,6 +389,7 @@ fn path_to_uri(path: &Path) -> String {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     // -- helpers -------------------------------------------------------
 
@@ -421,6 +422,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn cache_entries_reflects_current_cache() {
         clear_probe_cache();
         let _p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
@@ -439,6 +441,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn directory_persists_while_cache_holds_arc() {
         clear_probe_cache();
         let dir = {

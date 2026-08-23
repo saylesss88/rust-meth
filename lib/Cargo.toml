@@ -18,12 +18,15 @@ path = "src/lib.rs"
 doctest = false
 
 [dependencies]
-serde = { version = "1.0.229", default-features = false, features = ["serde_derive"] }
+serde = {version = "1.0.229", default-features = false, features = [
+	"serde_derive",
+]}
 serde_json = {workspace = true}
 thiserror = {version = "2.0.20", default-features = false}
 
 [dev-dependencies]
 criterion = {version = "0.8.2", default-features = false}
+serial_test = "4"
 
 [[example]]
 name = "basic_query"
