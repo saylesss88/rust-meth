@@ -14,4 +14,4 @@ pub mod probe;
 
 pub use error::RustMethError;
 pub use lsp::LspTransport;
-pub use probe::Probe;
+pub use probe::{CacheEntry, Probe, cache_entries, clear_probe_cache};
