@@ -168,7 +168,7 @@ cargo run --example batch_query
 
 ## Examples
 
-### [`basic_query.rs`](basic_query.rs)
+### [`basic_query.rs`](lib/examples/basic_query.rs)
 
 The minimal end-to-end path: `find_rust_analyzer` → `query_methods` → print
 method names. Start here.
