@@ -138,33 +138,37 @@ pub fn query_definition_for_methods(
     deps: Option<&str>,
     ra_path: &std::path::Path,
 ) -> Result<Vec<MethodResult>> {
-    // query_definition returns Result<Option<Definition>>, a fatal LSP error
-    // is Err, "no location found" is Ok(None). We propagate fatal errors and
-    // treat Ok(None) as a valid result.
-    //
-    // Collect errors separately so one fatal failure doesn't silently drop
-    // the rest, we return the first error if any occurred.
-    let results: Vec<Result<MethodResult>> = std::thread::scope(|s| {
-        methods
-            .iter()
-            .map(|method| {
-                s.spawn(move || {
-                    let definition = query_definition(type_name, &method.name, ra_path, deps)?;
-                    Ok(MethodResult {
-                        method: Method {
-                            name: method.name.clone(),
-                            detail: method.detail.clone(),
-                            documentation: method.documentation.clone(),
-                        },
-                        definition,
+    const MAX_CONCURRENT: usize = 4;
+
+    let mut all_results: Vec<Result<MethodResult>> = Vec::with_capacity(methods.len());
+
+    for chunk in methods.chunks(MAX_CONCURRENT) {
+        let chunk_results: Vec<Result<MethodResult>> = std::thread::scope(|s| {
+            let handles: Vec<_> = chunk
+                .iter()
+                .map(|method| {
+                    s.spawn(move || {
+                        let definition = query_definition(type_name, &method.name, ra_path, deps)?;
+                        Ok(MethodResult {
+                            method: Method {
+                                name: method.name.clone(),
+                                detail: method.detail.clone(),
+                                documentation: method.documentation.clone(),
+                            },
+                            definition,
+                        })
                     })
                 })
-            })
-            .map(|h| h.join().expect("definition query thread should not panic"))
-            .collect()
-    });
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().expect("definition query thread should not panic"))
+                .collect()
+        });
+        all_results.extend(chunk_results);
+    }
 
-    results.into_iter().collect()
+    all_results.into_iter().collect()
 }
 
 /// A chainable builder for method queries.
