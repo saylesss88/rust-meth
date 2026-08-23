@@ -12,6 +12,9 @@ and this project adheres to
 
 ### Added
 
+- An mdBook containing the examples and their output shortening the README
+  significantly.
+
 - `query` module containing a high-level builder API for querying `rust-analyzer`
 , and a standalone `filter_methods` function.
 
