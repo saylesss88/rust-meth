@@ -320,3 +320,19 @@ Cache cleared.
 Cache after clear: 0 entries
 Any probe dirs still on disk: false
 ```
+
+### [`filter_methods`](examples/filter_methods.rs)
+
+Filters and ranks methods against a query string without re-querying `rust-analyzer`.
+Useful when you already have a `Vec<Method>` and want to narrow results.
+
+Methods on `HashMap<String, u32>` whose names match `"get"`, ranked by match
+quality:
+
+```
+get
+get_disjoint_mut
+get_disjoint_unchecked_mut
+get_key_value
+get_mut
+```

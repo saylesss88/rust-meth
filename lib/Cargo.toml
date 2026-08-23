@@ -1,6 +1,6 @@
 [package]
 name = "rust-meth-lib"
-version = "0.3.0"
+version = "0.4.0"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -49,6 +49,14 @@ name = "custom_error"
 [[example]]
 name = "batch_query"
 
+[[example]]
+name = "probe_cache"
+
+[[example]]
+name = "filter_methods"
+
+[[example]]
+name = "builder_query"
 
 [[bench]]
 name = "benchmarks"

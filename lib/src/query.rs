@@ -36,8 +36,6 @@
 use crate::analyzer::{Definition, Method, query_definition, query_methods};
 use crate::error::Result;
 
-// -- filter_methods --
-
 /// Filters and ranks a slice of methods against a query string.
 ///
 /// Scoring tiers (highest first):
@@ -89,8 +87,6 @@ pub fn filter_methods<'a>(methods: &'a [Method], query: &str) -> Vec<&'a Method>
     scored.into_iter().map(|(_, m)| m).collect()
 }
 
-// ── MethodResult ──────────────────────────────────────────────────────────────
-
 /// A method paired with its optional source location.
 ///
 /// Returned by [`MethodQuery::run_with_definitions`] and
@@ -103,8 +99,6 @@ pub struct MethodResult {
     /// The source location of the method, if resolvable.
     pub definition: Option<Definition>,
 }
-
-// ── query_definition_for_methods ─────────────────────────────────────────────
 
 /// Resolves source locations for a slice of methods in parallel.
 ///
@@ -172,8 +166,6 @@ pub fn query_definition_for_methods(
 
     results.into_iter().collect()
 }
-
-// -- MethodQuery --
 
 /// A chainable builder for method queries.
 ///
@@ -303,11 +295,6 @@ impl<'a> MethodQuery<'a> {
         query_definition_for_methods(&methods, type_name, deps, ra_path)
     }
 }
-
-// -- Method: Clone --
-//
-// `run` needs to clone filtered methods out of the temporary Vec<&Method>.
-// If Method doesn't already derive Clone, add it to parse.rs.
 
 #[cfg(test)]
 mod tests {

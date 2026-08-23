@@ -12,6 +12,47 @@ and this project adheres to
 
 ### Added
 
+- `query` module containing a high-level builder API for querying `rust-analyzer`
+, and a standalone `filter_methods` function.
+
+Example of builder API:
+
+```rs
+use rust_meth_lib::query::MethodQuery;
+use rust_meth_lib::analyzer::find_rust_analyzer;
+let ra_path = find_rust_analyzer().unwrap();
+// Simple query with filter
+let methods = MethodQuery::new("Vec<u8>")
+    .filter("drain")
+    .run(&ra_path)
+    .unwrap();
+// Query with definitions, third-party type
+let results = MethodQuery::new("serde_json::Value")
+    .deps(r#"serde_json = "1.0""#)
+    .filter("as_")
+    .run_with_definitions(&ra_path)
+    .unwrap();
+for r in results {
+    if let Some(def) = r.definition {
+        println!("{} → {}:{}", r.method.name, def.path, def.line + 1);
+    }
+}
+```
+
+Example of `filter_methods`:
+
+```rs
+use rust_meth_lib::query::filter_methods;
+use rust_meth_lib::analyzer::{find_rust_analyzer, query_methods};
+
+let ra_path = find_rust_analyzer().unwrap();
+let methods = query_methods("HashMap<String, u32>", &ra_path, None).unwrap();
+let filtered = filter_methods(&methods, "get");
+for m in filtered {
+    println!("{}", m.name);
+}
+```
+
 - `lib/examples/probe_cache.rs`: demonstrates the in-process probe cache;
   shows `cache_entries` and `clear_probe_cache` usage before and after a
   `query_methods_batch` call.
