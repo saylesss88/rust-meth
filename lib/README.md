@@ -183,7 +183,7 @@ Methods on Vec<u8> (73 total):
 
 ---
 
-### [`method_info.rs`](method_info.rs)
+### [`method_info.rs`](examples/method_info.rs)
 
 Working with `Method::detail` (full signature) and `Method::documentation`
 (`rustdoc`). Both are `Option<String>`, this example shows how to handle the
@@ -196,7 +196,7 @@ fn push_str  →  pub fn push_str(&mut self, string: &str)
 
 ---
 
-### [`third_party_crate.rs`](third_party_crate.rs)
+### [`third_party_crate.rs`](examples/third_party_crate.rs)
 
 Querying types from external crates by passing a raw TOML deps snippet.
 Shows both single-crate and multi-crate dependency strings.
@@ -218,7 +218,7 @@ query_methods("serde_json::Map<String, serde_json::Value>", &ra_path, Some(deps)
 
 ---
 
-### [`fuzzy_filter.rs`](fuzzy_filter.rs)
+### [`fuzzy_filter.rs`](examples/fuzzy_filter.rs)
 
 Using `Vec<Method>` as a data source for your own search UI. Demonstrates
 three patterns: substring filter, signature grep (filter on return type), and
@@ -237,7 +237,7 @@ Ranked results for "get":
 
 ---
 
-### [`go_to_definition.rs`](go_to_definition.rs)
+### [`go_to_definition.rs`](examples/go_to_definition.rs)
 
 Resolving source file locations with `query_definition`. Returns a
 `Definition` with `path` (display-friendly), `full_path` (absolute, for
@@ -251,7 +251,7 @@ Vec<u8>::push  →  library/alloc/src/vec/mod.rs:1878
 
 ---
 
-### [`custom_error.rs`](custom_error.rs)
+### [`custom_error.rs`](examples/custom_error.rs)
 
 Wrapping `RustMethError` into a caller-defined `thiserror` enum. Shows how to
 intercept specific variants (`TypeNotFound`, `RustAnalyzerNotFound`) for
@@ -271,7 +271,7 @@ impl From<RustMethError> for AppError {
 
 ---
 
-### [`batch_query.rs`](batch_query.rs)
+### [`batch_query.rs`](examples/batch_query.rs)
 
 Querying multiple types and comparing their method sets. Demonstrates
 per-type error handling (one failure doesn't abort the batch), finding the
@@ -290,4 +290,33 @@ Vec<u8> unique methods (156):
   align_to
   align_to_mut
   ...
+```
+
+### [`probe_cache`](examples/probe_cache.rs)
+
+`query_methods_batch` populates the cache as a side effect of running queries.
+`cache_entries` lets you inspect what's currently cached. Useful for debugging,
+logging, or displaying cache state in your own tool. `clear_probe_cache` evicts
+all entries; each directory is deleted when its `Arc` refcount reaches zero.
+
+```
+Cache before queries: 0 entries
+
+Running batch query...
+  Vec<u8>: 229 methods
+  String: 145 methods
+  HashMap<String, u32>: 43 methods
+
+Cache after batch (3 entries):
+type                           deps                 kind         dir
+------------------------------------------------------------------------------------------
+HashMap<String, u32>           none                 completion   /tmp/rust-meth-probe-23708-2
+String                         none                 completion   /tmp/rust-meth-probe-23708-1
+Vec<u8>                        none                 completion   /tmp/rust-meth-probe-23708-0
+
+All probe dirs exist on disk: true
+
+Cache cleared.
+Cache after clear: 0 entries
+Any probe dirs still on disk: false
 ```
