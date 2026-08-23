@@ -156,3 +156,115 @@ Found 9 outliers among 100 measurements (9.00%)
 Benchmarking parse_definition
 Benchmarking parse_definition: Warming up for 3.0000 s
 Benchmarking parse_definition: Collecting 100 samples in estimated 5.0002 s (52M iterations)
+Benchmarking parse_definition: Analyzing
+parse_definition        time:   [105.17 ns 105.34 ns 105.56 ns]
+                        change: [+7.6053% +8.5145% +9.2067%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking lsp_messages/initialize
+Benchmarking lsp_messages/initialize: Warming up for 3.0000 s
+Benchmarking lsp_messages/initialize: Collecting 100 samples in estimated 5.0019 s (11M iterations)
+Benchmarking lsp_messages/initialize: Analyzing
+lsp_messages/initialize time:   [471.56 ns 472.39 ns 473.18 ns]
+                        change: [−2.8267% −1.8035% −0.7642%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking lsp_messages/completion
+Benchmarking lsp_messages/completion: Warming up for 3.0000 s
+Benchmarking lsp_messages/completion: Collecting 100 samples in estimated 5.0008 s (11M iterations)
+Benchmarking lsp_messages/completion: Analyzing
+lsp_messages/completion time:   [439.47 ns 440.15 ns 440.85 ns]
+                        change: [−1.9213% −1.5711% −1.1536%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+Benchmarking lsp_messages/definition
+Benchmarking lsp_messages/definition: Warming up for 3.0000 s
+Benchmarking lsp_messages/definition: Collecting 100 samples in estimated 5.0015 s (13M iterations)
+Benchmarking lsp_messages/definition: Analyzing
+lsp_messages/definition time:   [375.61 ns 376.43 ns 377.25 ns]
+                        change: [+2.8300% +3.4592% +3.9530%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+Benchmarking probe_creation/inferred_deps
+Benchmarking probe_creation/inferred_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/inferred_deps: Collecting 100 samples in estimated 5.0026 s (4.0M iterations)
+Benchmarking probe_creation/inferred_deps: Analyzing
+probe_creation/inferred_deps
+                        time:   [1.2380 µs 1.2392 µs 1.2404 µs]
+                        change: [−0.2397% +0.0571% +0.3346%] (p = 0.72 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+Benchmarking probe_creation/stdlib_type
+Benchmarking probe_creation/stdlib_type: Warming up for 3.0000 s
+Benchmarking probe_creation/stdlib_type: Collecting 100 samples in estimated 5.0013 s (4.5M iterations)
+Benchmarking probe_creation/stdlib_type: Analyzing
+probe_creation/stdlib_type
+                        time:   [1.0969 µs 1.0981 µs 1.0996 µs]
+                        change: [−1.5059% −1.0939% −0.7023%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high severe
+Benchmarking probe_creation/with_deps
+Benchmarking probe_creation/with_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/with_deps: Collecting 100 samples in estimated 5.0013 s (4.4M iterations)
+Benchmarking probe_creation/with_deps: Analyzing
+probe_creation/with_deps
+                        time:   [1.1344 µs 1.1353 µs 1.1362 µs]
+                        change: [+0.1270% +0.4144% +0.7476%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+Benchmarking probe_creation/with_multiple_deps
+Benchmarking probe_creation/with_multiple_deps: Warming up for 3.0000 s
+Benchmarking probe_creation/with_multiple_deps: Collecting 100 samples in estimated 5.0046 s (4.4M iterations)
+Benchmarking probe_creation/with_multiple_deps: Analyzing
+probe_creation/with_multiple_deps
+                        time:   [1.1397 µs 1.1404 µs 1.1410 µs]
+                        change: [−0.5440% −0.3406% −0.1339%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+
+Benchmarking probe_definition_creation/stdlib_no_deps
+Benchmarking probe_definition_creation/stdlib_no_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/stdlib_no_deps: Collecting 100 samples in estimated 5.0026 s (4.4M iterations)
+Benchmarking probe_definition_creation/stdlib_no_deps: Analyzing
+probe_definition_creation/stdlib_no_deps
+                        time:   [1.1212 µs 1.1218 µs 1.1224 µs]
+                        change: [−2.3152% −1.9036% −1.5391%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking probe_definition_creation/stdlib_with_deps
+Benchmarking probe_definition_creation/stdlib_with_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/stdlib_with_deps: Collecting 100 samples in estimated 5.0044 s (4.3M iterations)
+Benchmarking probe_definition_creation/stdlib_with_deps: Analyzing
+probe_definition_creation/stdlib_with_deps
+                        time:   [1.1481 µs 1.1488 µs 1.1494 µs]
+                        change: [−1.4069% −1.2729% −1.1236%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking probe_definition_creation/long_method_name_with_deps
+Benchmarking probe_definition_creation/long_method_name_with_deps: Warming up for 3.0000 s
+Benchmarking probe_definition_creation/long_method_name_with_deps: Collecting 100 samples in estimated 5.0000 s (4.3M iterations)
+Benchmarking probe_definition_creation/long_method_name_with_deps: Analyzing
+probe_definition_creation/long_method_name_with_deps
+                        time:   [1.1524 µs 1.1530 µs 1.1536 µs]
+                        change: [−1.0835% −0.6689% −0.3518%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high severe
+

@@ -75,14 +75,14 @@ struct ProbeMeta {
 /// The full path is `$XDG_CACHE_HOME/rust-meth/probes/`.
 #[must_use]
 pub fn persistent_cache_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
+    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
+        || {
             std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(std::env::temp_dir)
+                .map_or_else(std::env::temp_dir, PathBuf::from)
                 .join(".cache")
-        });
+        },
+        PathBuf::from,
+    );
     base.join("rust-meth").join("probes")
 }
 
@@ -203,10 +203,10 @@ fn save_persistent_probe(
         Ok(())
     };
 
-    if let Err(e) = save() {
-        if std::env::var("RUST_METH_DEBUG").is_ok() {
-            eprintln!("[debug] failed to save persistent probe: {e}");
-        }
+    if let Err(e) = save()
+        && std::env::var("RUST_METH_DEBUG").is_ok()
+    {
+        eprintln!("[debug] failed to save persistent probe: {e}");
     }
 }
 
