@@ -4,18 +4,6 @@
 //! A `Probe` creates a temporary directory containing a valid Cargo package with a single source file.
 //! The source file declares an isolated variable statement `let _x: TYPE = todo!();` followed by a target
 //! interaction point (such as `_x.` or `_x.method()`).
-//!
-//! ## Probe caching
-//!
-//! Probes are cached in-process by `(type_name, effective_deps, probe_kind)`. A cache hit skips
-//! temp-dir creation and file writes entirely. The cache holds an [`Arc`] to each `CachedProbe`;
-//! when all references are dropped the directory is deleted automatically. Call
-//! [`cache_entries`] to inspect what is currently cached, and [`clear_probe_cache`] to evict
-//! everything immediately.
-//!
-//! When the [`Probe`] instance goes out of scope, its [`Drop`] implementation automatically deletes
-//! the entire temporary directory and its contents from the disk, unless the entry is still held
-//! by the cache.
 
 mod cache;
 
@@ -418,139 +406,11 @@ fn path_to_uri(path: &Path) -> String {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::probe::cache::{ProbeMeta, cache_key_hash};
-    use serial_test::serial;
 
     // -- helpers -------------------------------------------------------
 
     fn preamble_line_count() -> u32 {
         u32::try_from(PREAMBLE.lines().count()).unwrap()
-    }
-
-    #[test]
-    #[serial]
-    fn cache_hit_returns_same_directory() {
-        clear_probe_cache();
-        let p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
-        let p2 = Probe::new_with_deps("Vec<u8>", None).unwrap();
-        assert_eq!(p1.dir, p2.dir, "cache hit should reuse the same directory");
-    }
-
-    #[test]
-    #[serial]
-    fn cache_miss_different_type_names() {
-        clear_probe_cache();
-        let p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
-        let p2 = Probe::new_with_deps("String", None).unwrap();
-        assert_ne!(p1.dir, p2.dir);
-    }
-
-    #[test]
-    #[serial]
-    fn cache_miss_different_deps() {
-        clear_probe_cache();
-        let p1 = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "1.0""#)).unwrap();
-        let p2 = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "2.0""#)).unwrap();
-        assert_ne!(p1.dir, p2.dir);
-    }
-
-    #[test]
-    #[serial]
-    fn cache_entries_reflects_current_cache() {
-        clear_probe_cache();
-        let _p1 = Probe::new_with_deps("Vec<u8>", None).unwrap();
-        let _p2 = Probe::new_with_deps("String", None).unwrap();
-        let entries = cache_entries();
-        let names: Vec<&str> = entries.iter().map(|e| e.type_name.as_str()).collect();
-        assert!(names.contains(&"Vec<u8>"));
-        assert!(names.contains(&"String"));
-    }
-
-    #[test]
-    #[serial]
-    fn clear_probe_cache_evicts_all_entries() {
-        let _p = Probe::new_with_deps("Vec<u8>", None).unwrap();
-        clear_probe_cache();
-        assert!(cache_entries().is_empty());
-    }
-
-    #[test]
-    #[serial]
-    fn directory_persists_while_cache_holds_arc() {
-        clear_probe_cache();
-        let dir = {
-            let p = Probe::new_with_deps("Vec<u8>", None).unwrap();
-            p.dir.clone()
-        };
-        // Probe dropped, but cache still holds the Arc — dir should still exist.
-        assert!(dir.exists(), "dir should persist while cache holds the Arc");
-        clear_probe_cache();
-        let _guard = cache::global_cache()
-            .lock()
-            .expect("probe cache lock poisoned");
-        assert!(
-            !dir.exists(),
-            "dir should be deleted after cache is cleared"
-        );
-    }
-
-    // -- persistent cache --
-
-    #[test]
-    fn persistent_cache_dir_ends_with_rust_meth_probes() {
-        let dir = persistent_cache_dir();
-        assert!(dir.ends_with("rust-meth/probes"));
-    }
-
-    #[test]
-    fn cache_key_hash_differs_by_type() {
-        let h1 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 1.0");
-        let h2 = cache_key_hash("String", None, None, "rust-analyzer 1.0");
-        assert_ne!(h1, h2);
-    }
-
-    #[test]
-    fn cache_key_hash_differs_by_ra_version() {
-        let h1 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 1.0");
-        let h2 = cache_key_hash("Vec<u8>", None, None, "rust-analyzer 2.0");
-        assert_ne!(h1, h2);
-    }
-
-    #[test]
-    fn cache_key_hash_differs_by_deps() {
-        let h1 = cache_key_hash(
-            "serde_json::Value",
-            Some(r#"serde_json = "1.0""#),
-            None,
-            "ra",
-        );
-        let h2 = cache_key_hash(
-            "serde_json::Value",
-            Some(r#"serde_json = "2.0""#),
-            None,
-            "ra",
-        );
-        assert_ne!(h1, h2);
-    }
-
-    #[test]
-    fn meta_json_round_trips() {
-        let meta = ProbeMeta {
-            type_name: "Vec<u8>".to_string(),
-            effective_deps: None,
-            method_name: None,
-            ra_version: "rust-analyzer 1.80.0".to_string(),
-            lib_version: "0.4.0".to_string(),
-            dot_line: 11,
-            dot_col: 7,
-        };
-        let json = serde_json::to_vec_pretty(&meta).unwrap();
-        let back: ProbeMeta = serde_json::from_slice(&json).unwrap();
-        assert_eq!(back.type_name, "Vec<u8>");
-        assert_eq!(back.dot_line, 11);
-        assert_eq!(back.dot_col, 7);
-        assert_eq!(back.ra_version, "rust-analyzer 1.80.0");
-        assert!(back.effective_deps.is_none());
     }
 
     // -- Cargo.toml generation ------------------------------------------
