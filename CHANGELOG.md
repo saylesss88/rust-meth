@@ -15,8 +15,8 @@ and this project adheres to
 - An mdBook containing the examples and their output shortening the README
   significantly.
 
-- `query` module containing a high-level builder API for querying `rust-analyzer`
-, and a standalone `filter_methods` function.
+- `query` module containing a high-level builder API for querying
+  `rust-analyzer` , and a standalone `filter_methods` function.
 
 Example of builder API:
 
@@ -56,32 +56,42 @@ for m in filtered {
 }
 ```
 
-- `lib/examples/probe_cache.rs`: demonstrates the in-process probe cache;
-  shows `cache_entries` and `clear_probe_cache` usage before and after a
+- `lib/examples/probe_cache.rs`: demonstrates the in-process probe cache; shows
+  `cache_entries` and `clear_probe_cache` usage before and after a
   `query_methods_batch` call.
 - `cache_entries() -> Vec<CacheEntry>`: returns a snapshot of all probe
   directories currently held in the in-process cache.
-- `clear_probe_cache()`: evicts all cache entries; each directory is
-  deleted when its `Arc` refcount reaches zero.
-- `CacheEntry`: public type exposing `type_name`, `deps`, `method_name`,
-  and `dir` for each cached probe.
+- `clear_probe_cache()`: evicts all cache entries; each directory is deleted
+  when its `Arc` refcount reaches zero.
+- `CacheEntry`: public type exposing `type_name`, `deps`, `method_name`, and
+  `dir` for each cached probe.
 
 ### Changed
 
--  `Probe` is now backed by a global `Arc`-based cache keyed by
-  `(type_name, effective_deps, probe_kind)`. Cache hits skip temp-dir
-  creation and file writes entirely. The directory is deleted when both
-  the cache entry and all borrowing `Probe` instances are dropped.
-
+- Split `probe.rs` into `probe/mod.rs` and `probe/cache.rs`: cache logic
+  (in-process Arc cache, persistent disk cache, hashing, metadata) is now
+  isolated in its own module with `pub(super)` visibility on internal types.
+- Extracted `create_probe` into three focused helpers: `from_memory_cache`,
+  `from_persistent_cache`, and `create_on_disk`.
+- Move unit tests related to caching into `cache.rs`.
+- `Probe` is now backed by a global `Arc`-based cache keyed by
+  `(type_name, effective_deps, probe_kind)`. Cache hits skip temp-dir creation
+  and file writes entirely. The directory is deleted when both the cache entry
+  and all borrowing `Probe` instances are dropped.
 
 ### Performance
 
-- Probe creation: **~98% reduction** (65µs → 1.1µs) on cache hits.  
+- Persistent probe cache: probe directories are saved to
+  `$XDG_CACHE_HOME/rust-meth/probes/` and reused across process restarts.
+  Third-party type queries skip Cargo resolution on subsequent invocations.
+  Cache keys include the `rust-analyzer` version and `rust-meth-lib` version
+  so upgrades automatically invalidate stale entries.
+  Measured: `tokio::net::TcpStream` query time 9.0s → 4.2s on second run.
+- Probe creation: **~98% reduction** (65µs → 1.1µs) on cache hits.
 
 ## [0.7.0] - 2026-08-22
 
 - version bump to use the new `rust-meth-lib` with increased performance
-
 
 # [rust-meth-lib 0.3.0]
 
@@ -112,7 +122,8 @@ cargo run --example batch_query
 ### Changed
 
 - `query_methods` is now a thin wrapper over the internal `query_methods_inner`,
-  shared with `query_methods_batch`. No change to its public signature or behaviour.
+  shared with `query_methods_batch`. No change to its public signature or
+  behaviour.
 
 ### Performance
 
@@ -138,7 +149,6 @@ cargo run --example batch_query
 - More error types to give better direction to users
 
 - Error type `TypeNotFound` indicating a typo or non-existant type
-
 
 # [0.6.1]
 
