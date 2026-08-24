@@ -204,87 +204,126 @@ impl Probe {
             method_name: method_name.map(str::to_owned),
         };
 
-        // -- In-process cache --
+        // 1. In-process cache
+        if let Some(probe) = Self::from_memory_cache(&key) {
+            return Ok(probe);
+        }
+
+        // 2. Persistent cache
+        if let Some(ra) = ra_path
+            && let Some(probe) = Self::from_persistent_cache(&key, ra)
         {
+            return Ok(probe);
+        }
+
+        // 3. Create on disk
+        Self::create_on_disk(
+            key,
+            type_name,
+            method_name,
+            effective_deps.as_ref(),
+            ra_path,
+        )
+    }
+
+    /// Checks the in-process Arc cache. Returns `Some(Probe)` on a hit.
+    fn from_memory_cache(key: &CacheKey) -> Option<Self> {
+        let inner = {
             let cache = cache::global_cache()
                 .lock()
                 .expect("probe cache lock poisoned");
-            if let Some(cached) = cache.get(&key)
-                && cached.dir.exists()
-            {
-                let inner = Arc::clone(cached);
-                return Ok(Self {
-                    dir: inner.dir.clone(),
-                    src_path: inner.src_path.clone(),
-                    dot_line: inner.dot_line,
-                    dot_col: inner.dot_col,
-                    inner,
-                });
+            let cached = cache.get(key)?;
+            if !cached.dir.exists() {
+                return None;
             }
-            // Dir was deleted externally, fall through to recreate.
-        } // lock released before doing any I/O
+            let inner = Arc::clone(cached);
+            drop(cache);
+            inner
+        };
+        Some(Self {
+            dir: inner.dir.clone(),
+            src_path: inner.src_path.clone(),
+            dot_line: inner.dot_line,
+            dot_col: inner.dot_col,
+            inner,
+        })
+    }
 
-        // -- Persistent cache --
+    /// Checks the persistent disk cache. On a hit, also populates the in-process
+    /// cache so subsequent calls in the same process are instant.
+    fn from_persistent_cache(key: &CacheKey, ra_path: &Path) -> Option<Self> {
+        let version = ra_version(ra_path);
+        let (dir, src_path, dot_line, dot_col) = load_persistent_probe(
+            &key.type_name,
+            key.effective_deps.as_deref(),
+            key.method_name.as_deref(),
+            &version,
+        )?;
 
-        if let Some(ra) = ra_path {
-            let version = ra_version(ra);
-            if let Some((dir, src_path, dot_line, dot_col)) =
-                load_persistent_probe(type_name, effective_deps.as_deref(), method_name, &version)
-            {
-                if std::env::var("RUST_METH_DEBUG").is_ok() {
-                    eprintln!("[debug] persistent cache hit: {}", dir.display());
-                }
-                let inner = Arc::new(CachedProbe {
-                    dir: dir.clone(),
-                    src_path: src_path.clone(),
-                    dot_line,
-                    dot_col,
-                    owned: false,
-                });
-                {
-                    let mut cache = global_cache().lock().expect("probe cache lock poisoned");
-                    cache.insert(key, Arc::clone(&inner));
-                }
-                return Ok(Self {
-                    inner,
-                    dot_line,
-                    dot_col,
-                    dir,
-                    src_path,
-                });
-            }
+        if std::env::var("RUST_METH_DEBUG").is_ok() {
+            eprintln!("[debug] persistent cache hit: {}", dir.display());
         }
 
-        // -- Cache miss: create probe on disk --
+        let inner = Arc::new(CachedProbe {
+            dir: dir.clone(),
+            src_path: src_path.clone(),
+            dot_line,
+            dot_col,
+            owned: false,
+        });
+
+        {
+            let mut cache = global_cache().lock().expect("probe cache lock poisoned");
+            cache.insert(key.clone(), Arc::clone(&inner));
+        }
+
+        Some(Self {
+            inner,
+            dot_line,
+            dot_col,
+            dir,
+            src_path,
+        })
+    }
+
+    /// Creates a new probe directory on disk, writes Cargo.toml and src/main.rs,
+    /// saves to the persistent cache if `ra_path` is provided, and inserts into
+    /// the in-process cache.
+    fn create_on_disk(
+        key: CacheKey,
+        type_name: &str,
+        method_name: Option<&str>,
+        effective_deps: Option<&String>,
+        ra_path: Option<&Path>,
+    ) -> std::io::Result<Self> {
         let id = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
         let suffix = method_name.map_or("probe", |_| "probe-def");
         let dir =
             std::env::temp_dir().join(format!("rust-meth-{suffix}-{}-{id}", std::process::id()));
-
         let src_dir = dir.join("src");
         fs::create_dir_all(&src_dir)?;
 
-        let cargo_toml = effective_deps.as_deref().map_or_else(
+        let cargo_toml = effective_deps.map_or_else(
         || "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n".to_string(),
         |d| format!(
             "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{d}\n"
         ),
     );
-        // Build Cargo.toml with optional dependencies
         fs::write(dir.join("Cargo.toml"), cargo_toml)?;
 
         let preamble_lines = u32::try_from(PREAMBLE.lines().count())
-            .expect("PREAMBLE is a fixed compile-time constant, line count always fits u32");
+            .expect("PREAMBLE is a fixed compile-time constant");
 
-        // Generate source based on whether we're doing completion or definition
-        let source = method_name.map_or_else(|| format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n"), |method| format!(
-                      "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method}();\n}}\n"
-                 ));
+        let source = method_name.map_or_else(
+        || format!("{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n"),
+        |method| format!(
+            "{PREAMBLE}fn main() {{\n    let _x: {type_name} = todo!();\n    _x.{method}();\n}}\n"
+        ),
+    );
 
         let src_path = src_dir.join("main.rs");
         fs::write(&src_path, &source)?;
 
-        // Dot is at preamble_lines + 2, col = len("    _x.")
         let dot_line = preamble_lines + 2;
         let dot_col =
             u32::try_from("    _x.".len()).expect("string literal length always fits in u32");
@@ -297,13 +336,12 @@ impl Probe {
             eprintln!("cursor → line={dot_line} col={dot_col}");
         }
 
-        // Save to persistent cache if ra_path was provided.
         if let Some(ra) = ra_path {
             let version = ra_version(ra);
             save_persistent_probe(
                 &dir,
                 type_name,
-                effective_deps.as_deref(),
+                effective_deps.map(String::as_str),
                 method_name,
                 &version,
                 dot_line,
@@ -319,7 +357,6 @@ impl Probe {
             owned: true,
         });
 
-        // Insert into cache.
         {
             let mut cache = global_cache().lock().expect("probe cache lock poisoned");
             cache.insert(key, Arc::clone(&inner));
