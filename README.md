@@ -45,7 +45,8 @@ the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library 
 - Colorized output, JSON output, and call snippets
 - Explain any method's full documentation with `--explain`
 - Syntax Highlighting of ```rust blocks in output from `--explain`
-
+- Persistent cache, third-party type queries skip Cargo resolution on subsequent
+  invocations.
 
 ## Requirements
 
@@ -73,15 +74,15 @@ rust-meth <type> [filter] [flags]
 
 ```bash
 rust-meth u8 wrapping
-rust-meth '&str' splt          # fuzzy — finds split_*
-rust-meth 'Vec<u8>' -i         # interactive picker
-rust-meth u8 strict_shr --doc  # inline documentation
-rust-meth u8 --gd checked_add  # go-to-definition
-rust-meth u8 --gd isqrt --open # open in $EDITOR
+rust-meth '&str' splt               # fuzzy, finds split_*
+rust-meth 'Vec<u8>' -i              # interactive picker
+rust-meth u8 strict_shr --doc       # inline documentation
+rust-meth u8 --gd checked_add       # go-to-definition
+rust-meth u8 --gd isqrt --open      # open in $EDITOR
 rust-meth u8 --gd isqrt --open-doc  # open in browser
-rust-meth 'serde_json::Value'  # 3rd party crate
-rust-meth u8 wrapping --snippet
-rust-meth u8 wrapping --json
+rust-meth 'serde_json::Value'       # 3rd party crate
+rust-meth u8 wrapping --snippet     # print as a paste-ready call site
+rust-meth u8 wrapping --json        # machine-friendly output
 ```
 
 <p align="center">
@@ -108,7 +109,7 @@ For full flag reference and detailed examples, see the sections below.
 <a id="fuzzy-filter"></a>
 ## Fuzzy filter
 
-The filter argument uses fuzzy matching — typos and partials work:
+The filter argument uses fuzzy matching, typos and partials work:
 
 ```sh
 rust-meth u8 wrapng        # finds all wrapping_* methods
@@ -185,18 +186,20 @@ For types where the crate name matches the type path prefix, `--deps` can be omi
 ```sh
 rust-meth 'serde_json::Value'
 rust-meth 'serde_json::Value' -i
+rust-meth 'anyhow::Error'
 ```
 
 Use `--deps` to pin a version or add features:
 
 ```sh
 rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
-rust-meth 'reqwest::Client' --deps 'reqwest = "0.11"
-tokio = { version = "1", features = ["full"] }'
+rust-meth 'reqwest::Client' --deps 'reqwest = "0.11" tokio = { version = "1", features = ["net"] }'
 ```
 
 > [!NOTE]
-> First-time queries may take 5–10 seconds as `rust-analyzer` downloads and indexes dependencies.
+> First-time queries may take 5–10 seconds as `rust-analyzer` downloads and
+> indexes dependencies. Subsequent queries are cached and skip Cargo resolution,
+> making them much faster.
 
 
 ## Example: querying a third-party crate
@@ -204,7 +207,7 @@ tokio = { version = "1", features = ["full"] }'
 Enumerate methods on a type from any crate, including its optional features:
 
 ```bash
-rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["full"] }'
+rust-meth 'tokio::net::TcpStream' --deps 'tokio = { version = "*", features = ["net"] }'
 ```
 
 ```bash
@@ -221,6 +224,10 @@ rust-meth: methods on `tokio::net::TcpStream`
 `--deps` accepts any valid `Cargo.toml` dependency line, so you can pin versions,
 enable features, or point at git/path dependencies the same way you would in a
 real project.
+
+> [!NOTE]
+> Very large crates with deep dependency trees (GUI frameworks, async runtimes,
+> etc.) will always be fairly slow as `rust-analyzer` indexes it.
 
 <a id="explain-a-method"></a>
 ## Explain a method
@@ -302,7 +309,7 @@ The `--explain` flag renders full documentation with syntax-highlighted ```rust
 blocks:
 
 ```bash
-$ rust-meth 'Result<u8, String>' --explain unwrap_unchecked
+rust-meth 'Result<u8, String>' --explain unwrap_unchecked
 ```
 
 <p align="center">
