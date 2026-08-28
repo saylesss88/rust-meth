@@ -234,7 +234,7 @@ fn bench_filter_methods(c: &mut Criterion) {
 }
 
 fn bench_cache_key_hash(c: &mut Criterion) {
-    use rust_meth_lib::probe::cache::cache_key_hash;
+    use rust_meth_lib::probe::cache_key_hash;
 
     c.bench_function("cache_key_hash", |b| {
         b.iter(|| {

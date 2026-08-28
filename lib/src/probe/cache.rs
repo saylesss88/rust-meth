@@ -28,7 +28,14 @@ pub(super) fn fnv1a(data: &str) -> u64 {
     hash
 }
 
-pub(crate) fn cache_key_hash(
+/// Computes the persistent cache key for a probe configuration.
+///
+/// Returns a 16-character hex string derived from `type_name`, `effective_deps`,
+/// `method_name`, the `rust-analyzer` version, and the `rust-meth-lib` version.
+/// Any change to these inputs produces a different key, so upgrades to either
+/// binary automatically invalidate stale cache entries.
+#[must_use]
+pub fn cache_key_hash(
     type_name: &str,
     effective_deps: Option<&str>,
     method_name: Option<&str>,
