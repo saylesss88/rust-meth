@@ -115,7 +115,6 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    // ── parse_methods ────────────────────────────────────────────────────────
     #[test]
     fn parse_methods_empty_items_returns_empty_vec() {
         let resp = json!({ "result": { "items": [], "isIncomplete": false } });
@@ -257,7 +256,6 @@ mod tests {
         assert!(names.contains(&"as_object"));
     }
 
-    // ── parse_definition ─────────────────────────────────────────────────────
     #[test]
     fn parse_definition_array_form() {
         let resp = json!({

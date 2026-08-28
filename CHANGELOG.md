@@ -68,6 +68,7 @@ for m in filtered {
 
 ### Changed
 
+- Update dependencies.
 - Split `probe.rs` into `probe/mod.rs` and `probe/cache.rs`: cache logic
   (in-process Arc cache, persistent disk cache, hashing, metadata) is now
   isolated in its own module with `pub(super)` visibility on internal types.
