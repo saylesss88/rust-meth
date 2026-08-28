@@ -15,8 +15,8 @@ use std::sync::{
 };
 
 pub use cache::{
-    CacheEntry, PersistentCacheEntry, cache_entries, clear_persistent_cache, clear_probe_cache,
-    persistent_cache_dir, persistent_cache_entries,
+    CacheEntry, PersistentCacheEntry, cache_entries, cache_key_hash, clear_persistent_cache,
+    clear_probe_cache, persistent_cache_dir, persistent_cache_entries,
 };
 use cache::{
     CacheKey, CachedProbe, global_cache, load_persistent_probe, ra_version, save_persistent_probe,

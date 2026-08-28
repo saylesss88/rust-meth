@@ -177,6 +177,77 @@ fn bench_probe_definition_creation(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_probe_cache_hit(c: &mut Criterion) {
+    let mut group = c.benchmark_group("probe_cache");
+
+    // Warm the cache first, then measure hit cost
+    group.bench_function("memory_cache_hit", |b| {
+        let _ = Probe::new_with_deps("Vec<u8>", None).unwrap();
+        b.iter(|| Probe::new_with_deps(black_box("Vec<u8>"), None).unwrap());
+    });
+
+    group.bench_function("memory_cache_hit_with_deps", |b| {
+        let _ = Probe::new_with_deps("serde_json::Value", Some(r#"serde_json = "1.0""#)).unwrap();
+        b.iter(|| {
+            Probe::new_with_deps(
+                black_box("serde_json::Value"),
+                Some(black_box(r#"serde_json = "1.0""#)),
+            )
+            .unwrap()
+        });
+    });
+
+    group.finish();
+}
+
+fn bench_filter_methods(c: &mut Criterion) {
+    use rust_meth_lib::analyzer::Method;
+    use rust_meth_lib::query::filter_methods;
+
+    let methods: Vec<Method> = (0..200)
+        .map(|i| Method {
+            name: format!("method_{i}"),
+            detail: Some(format!("fn method_{i}(&self) -> usize")),
+            documentation: Some(format!("Docs for method {i}")),
+        })
+        .collect();
+
+    let mut group = c.benchmark_group("filter_methods");
+
+    group.bench_function("exact_match", |b| {
+        b.iter(|| filter_methods(black_box(&methods), black_box("method_42")));
+    });
+
+    group.bench_function("prefix_match", |b| {
+        b.iter(|| filter_methods(black_box(&methods), black_box("method_1")));
+    });
+
+    group.bench_function("no_match", |b| {
+        b.iter(|| filter_methods(black_box(&methods), black_box("zzz")));
+    });
+
+    group.bench_function("empty_query", |b| {
+        b.iter(|| filter_methods(black_box(&methods), black_box("")));
+    });
+
+    group.finish();
+}
+
+fn bench_cache_key_hash(c: &mut Criterion) {
+    use rust_meth_lib::probe::cache::cache_key_hash;
+
+    c.bench_function("cache_key_hash", |b| {
+        b.iter(|| {
+            cache_key_hash(
+                black_box("serde_json::Value"),
+                black_box(Some(r#"serde_json = "1.0""#)),
+                black_box(None),
+                black_box("rust-analyzer 1.80.0-nightly"),
+            )
+        });
+    });
+}
+
 // ── criterion entry points ────────────────────────────────────────────────────
 
 criterion_group!(
@@ -185,6 +256,9 @@ criterion_group!(
     bench_parse_definition,
     bench_lsp_message_construction,
     bench_probe_creation,
-    bench_probe_definition_creation, // ← new
+    bench_probe_definition_creation,
+    bench_probe_cache_hit,
+    bench_filter_methods,
+    bench_cache_key_hash,
 );
 criterion_main!(benches);

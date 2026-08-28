@@ -28,7 +28,7 @@ pub(super) fn fnv1a(data: &str) -> u64 {
     hash
 }
 
-pub(super) fn cache_key_hash(
+pub(crate) fn cache_key_hash(
     type_name: &str,
     effective_deps: Option<&str>,
     method_name: Option<&str>,
