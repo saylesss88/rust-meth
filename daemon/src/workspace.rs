@@ -101,6 +101,90 @@ pub fn workspaces_dir() -> PathBuf {
     base.join("rust-meth").join("workspaces")
 }
 
+// -- Workspace creation --
+
+pub fn open_or_create(
+    key: &SessionKey,
+    deps: Option<&str>,
+    initial_type: &str,
+) -> Result<DaemonWorkspace, WorkspaceError> {
+    let dir = workspaces_dir().join(key.dir_name());
+    let src_dir = dir.join("src");
+    fs::create_dir_all(&src_dir)?;
+
+    // Write Cargo.toml only if it doesn't exist yet.
+    let cargo_toml_path = dir.join("Cargo.toml");
+    if !cargo_toml_path.exists() {
+        let cargo_toml = build_cargo_toml(deps);
+        fs::write(&cargo_toml_path, cargo_toml)?;
+    }
+
+    // lib.rs is stable — preamble imports that keep the index warm.
+    let lib_path = src_dir.join("lib.rs");
+    if !lib_path.exists() {
+        fs::write(&lib_path, lib_source(deps))?;
+    }
+
+    // scratch.rs is ephemeral, written fresh for each query type.
+    let scratch_path = src_dir.join("scratch.rs");
+    let source = scratch_source(initial_type);
+    fs::write(&scratch_path, &source)?;
+
+    // dot position: fn main() is line 0, let _x is line 1, _x. is line 2
+    let dot_line = 2u32;
+    let dot_col = u32::try_from("    _x.".len()).expect("literal length fits u32");
+
+    Ok(DaemonWorkspace {
+        dir,
+        scratch_path,
+        dot_line,
+        dot_col,
+    })
+}
+
+// -- Source generation --
+
+/// Generates the stable `lib.rs` content, imports the declared crates to
+/// force rust-analyzer to index them. This file never changes after creation.
+fn lib_source(deps: Option<&str>) -> String {
+    let mut lines = vec![
+        "#![allow(unused_imports)]".to_string(),
+        "use std::collections::*;".to_string(),
+        "use std::sync::*;".to_string(),
+        "use std::cell::*;".to_string(),
+        "use std::rc::Rc;".to_string(),
+        "use std::io::{self, Read, Write, BufRead};".to_string(),
+        "use std::fmt;".to_string(),
+        "use std::ops::*;".to_string(),
+        "use std::path::{Path, PathBuf};".to_string(),
+    ];
+
+    // Add extern crate declarations for each dep so RA indexes them.
+    if let Some(d) = deps {
+        for line in d.lines() {
+            let crate_name = line
+                .split('=')
+                .next()
+                .map(str::trim)
+                .unwrap_or("")
+                .replace('-', "_");
+            if !crate_name.is_empty() && !crate_name.starts_with('[') {
+                lines.push(format!("extern crate {crate_name};"));
+            }
+        }
+    }
+
+    lines.join("\n") + "\n"
+}
+
+fn build_cargo_toml(deps: Option<&str>) -> String {
+    let base = "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n";
+    match deps {
+        None => base.to_string(),
+        Some(d) => format!("{base}\n[dependencies]\n{d}\n"),
+    }
+}
+
 /// Generates the per-query `scratch.rs` content with `type_name` injected.
 fn scratch_source(type_name: &str) -> String {
     format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
