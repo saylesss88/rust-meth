@@ -1,0 +1,29 @@
+[package]
+name = "rust-meth-daemon"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "A rust-analyzer daemon for querying about methods"
+documentation = "https://docs.rs/rust-meth-daemon"
+categories = ["development-tools"]
+readme = "README.md"
+
+[dependencies]
+rust-meth-lib = { path = "../lib" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "rust-meth-daemon"
+path = "src/main.rs"
+
+[features]
+default = []
