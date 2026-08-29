@@ -74,6 +74,15 @@ impl DaemonWorkspace {
         path_to_uri(&self.scratch_path)
     }
 
+    /// Reads the current contents of `scratch.rs`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be read.
+    pub fn scratch_source(&self) -> std::io::Result<String> {
+        fs::read_to_string(&self.scratch_path)
+    }
+
     /// Rewrites `scratch.rs` with the given type injected at the dot trigger.
     ///
     /// # Errors
@@ -175,6 +184,11 @@ fn lib_source(deps: Option<&str>) -> String {
     }
 
     lines.join("\n") + "\n"
+}
+
+/// Generates the per-query `scratch.rs` content with `type_name` injected.
+fn scratch_source(type_name: &str) -> String {
+    format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
 }
 
 fn build_cargo_toml(deps: Option<&str>) -> String {
@@ -288,11 +302,6 @@ fn active_toolchain() -> String {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "unknown".to_string())
-}
-
-/// Generates the per-query `scratch.rs` content with `type_name` injected.
-fn scratch_source(type_name: &str) -> String {
-    format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
 }
 
 fn path_to_uri(path: &Path) -> String {
