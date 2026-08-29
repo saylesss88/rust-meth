@@ -12,9 +12,17 @@ and this project adheres to
 
 ### Added
 
+- `results_cache` module: persistent cache for `query_methods` results. Stores
+  `Vec<Method>` as JSON in `$XDG_CACHE_HOME/rust-meth/results/`, keyed by
+  `(type_name, effective_deps, ra_version, lib_version)`. A cache hit returns
+  results immediately with zero LSP cost, no rust-analyzer subprocess, no Cargo
+  resolution, no probe directory needed.
+- `results_cache_dir()`, `results_cache_entries()`, `clear_results_cache()`:
+  public API for inspecting and managing the results cache.
+- `ResultsCacheEntry`: public type exposing `type_name`, `deps`, `ra_version`,
+  `lib_version`, `method_count`, and `path` for each cached result.
 - An mdBook containing the examples and their output shortening the README
   significantly.
-
 - `query` module containing a high-level builder API for querying
   `rust-analyzer` , and a standalone `filter_methods` function.
 
@@ -68,6 +76,10 @@ for m in filtered {
 
 ### Changed
 
+- `query_methods_inner` now checks the results cache before starting an LSP
+  session. On a hit the entire rust-analyzer lifecycle is skipped.
+- `Method` now derives `serde::Deserialize` in addition to `Serialize`, enabling
+  JSON round-trip for results cache storage.
 - Update dependencies.
 - Split `probe.rs` into `probe/mod.rs` and `probe/cache.rs`: cache logic
   (in-process Arc cache, persistent disk cache, hashing, metadata) is now
@@ -82,12 +94,15 @@ for m in filtered {
 
 ### Performance
 
+- Results cache: repeated queries against the same type return instantly from
+  disk rather than spinning up rust-analyzer. Measured: `tokio::net::TcpStream`
+  query time 4.0s → 0.021s on second run.
 - Persistent probe cache: probe directories are saved to
   `$XDG_CACHE_HOME/rust-meth/probes/` and reused across process restarts.
   Third-party type queries skip Cargo resolution on subsequent invocations.
-  Cache keys include the `rust-analyzer` version and `rust-meth-lib` version
-  so upgrades automatically invalidate stale entries.
-  Measured: `tokio::net::TcpStream` query time 9.0s → 4.2s on second run.
+  Cache keys include the `rust-analyzer` version and `rust-meth-lib` version so
+  upgrades automatically invalidate stale entries. Measured:
+  `tokio::net::TcpStream` query time 9.0s → 4.2s on second run.
 - Probe creation: **~98% reduction** (65µs → 1.1µs) on cache hits.
 
 ## [0.7.0] - 2026-08-22
