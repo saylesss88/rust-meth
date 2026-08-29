@@ -99,6 +99,31 @@ fn query_methods_inner(
     ra_path: &std::path::Path,
     deps: Option<&str>,
 ) -> Result<Vec<Method>> {
+    use crate::probe::cache::ra_version;
+    use crate::results_cache::{load_results, save_results};
+
+    // Infer effective deps the same way Probe does, so the cache key matches.
+    let effective_deps = deps.map(str::to_owned).or_else(|| {
+        if type_name.contains("::")
+            && type_name
+                .split("::")
+                .next()
+                .and_then(|s| s.chars().next())
+                .is_some_and(|c| c.is_ascii_lowercase())
+        {
+            let crate_name = type_name.split("::").next().unwrap_or("");
+            Some(format!(r#"{crate_name} = "*""#))
+        } else {
+            None
+        }
+    });
+
+    // ── 0. Results cache ──────────────────────────────────────────────────────
+    let ra_version = ra_version(ra_path);
+    if let Some(methods) = load_results(type_name, effective_deps.as_deref(), &ra_version) {
+        return Ok(methods);
+    }
+
     let probe = Probe::new_with_deps_cached(type_name, deps, ra_path)?;
     let mut child = Command::new(ra_path)
         .stdin(Stdio::piped())
@@ -107,19 +132,19 @@ fn query_methods_inner(
         .spawn()?;
     let mut lsp = LspTransport::new(&mut child)?;
     let pid = std::process::id();
-    // ── 1. initialize ────────────────────────────────────────────────────────
+
     lsp.send(&LspTransport::initialize(pid, &probe.root_uri()))?;
     lsp.recv_until(20, |msg| {
         (msg["id"] == 1 && msg["result"].is_object()).then_some(())
     })?;
-    // ── 2. initialized notification ──────────────────────────────────────────
+
     lsp.send(&LspTransport::initialized())?;
-    // ── 3. didOpen ───────────────────────────────────────────────────────────
+
     lsp.send(&LspTransport::did_open(&probe.src_uri(), &probe.source()?))?;
-    // ── 4. Wait for RA to finish indexing ────────────────────────────────────
+
     let diag_msg = wait_for_indexing(&mut lsp, &probe.src_uri());
     check_diagnostics_for_type_error(type_name, diag_msg.as_ref())?;
-    // ── 5. completion — retry until RA returns items ──────────────────────────
+
     // RA may return isIncomplete+empty if it isn't fully ready yet.
     let completion_response = retry_lsp_request(
         &mut lsp,
@@ -142,13 +167,15 @@ fn query_methods_inner(
             !items.is_empty() && !is_blanket_fallback(&items)
         },
     )?;
-    // ── 6. shutdown / exit ────────────────────────────────────────────────────
+
     lsp.send(&LspTransport::shutdown(13))?;
     let _ = lsp.recv_until(10, |msg| (msg["id"] == 13).then_some(()));
     lsp.send(&LspTransport::exit())?;
     let _ = child.wait();
-    // ── 7. Parse completion items ─────────────────────────────────────────────
-    parse::parse_methods(&completion_response)
+
+    let methods = parse::parse_methods(&completion_response)?;
+    save_results(type_name, effective_deps.as_deref(), &ra_version, &methods);
+    Ok(methods)
 }
 
 /// Use diagnostics to find the error type

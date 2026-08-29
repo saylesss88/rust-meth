@@ -13,7 +13,7 @@ use crate::error::{Result, RustMethError};
 const KIND_METHOD: u64 = 2;
 
 /// Represents a method extracted from a `rust-analyzer` completion list.
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Method {
     /// The plain name of the method (e.g., `"len"`).
     pub name: String,

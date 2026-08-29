@@ -5,7 +5,7 @@
 //! The source file declares an isolated variable statement `let _x: TYPE = todo!();` followed by a target
 //! interaction point (such as `_x.` or `_x.method()`).
 
-mod cache;
+pub(crate) mod cache;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -16,11 +16,9 @@ use std::sync::{
 
 pub use cache::{
     CacheEntry, PersistentCacheEntry, cache_entries, cache_key_hash, clear_persistent_cache,
-    clear_probe_cache, persistent_cache_dir, persistent_cache_entries,
+    clear_probe_cache, persistent_cache_dir, persistent_cache_entries, ra_version,
 };
-use cache::{
-    CacheKey, CachedProbe, global_cache, load_persistent_probe, ra_version, save_persistent_probe,
-};
+use cache::{CacheKey, CachedProbe, global_cache, load_persistent_probe, save_persistent_probe};
 
 // -- Counter --
 
@@ -154,7 +152,7 @@ impl Probe {
     /// assert_eq!(infer_dep("Vec<u8>"),           None);
     /// assert_eq!(infer_dep("HashMap<K, V>"),     None);
     /// ```
-    fn infer_dep(type_name: &str) -> Option<String> {
+    pub(crate) fn infer_dep(type_name: &str) -> Option<String> {
         if !type_name.contains("::") {
             return None; // primitives, String, Vec<u8>, etc. never need an inferred dep
         }

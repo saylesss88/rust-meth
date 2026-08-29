@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
+
 // -- Hashing --
 //
 // Simple FNV-1a hash
@@ -208,7 +209,8 @@ pub(super) fn save_persistent_probe(
 }
 
 /// Queries the `rust-analyzer` binary for its version string.
-pub(super) fn ra_version(ra_path: &Path) -> String {
+#[must_use]
+pub fn ra_version(ra_path: &Path) -> String {
     std::process::Command::new(ra_path)
         .arg("--version")
         .output()
