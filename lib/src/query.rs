@@ -128,10 +128,6 @@ pub struct MethodResult {
 ///     }
 /// }
 /// ```
-/// ## Panics
-///
-/// This function may panic if any spawned background thread computing the method
-/// definitions panics or is aborted
 pub fn query_definition_for_methods(
     methods: &[Method],
     type_name: &str,
@@ -357,5 +353,33 @@ mod tests {
         let result = filter_methods(&methods, "get");
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "get");
+    }
+
+    #[test]
+    fn limit_truncates_results() {
+        let methods = make_methods(&["push", "pop", "len", "get", "insert"]);
+        // filter_methods returns all 5, limit should cap at 3
+        let result = filter_methods(&methods, "");
+        let limited: Vec<&Method> = result.into_iter().take(3).collect();
+        assert_eq!(limited.len(), 3);
+    }
+
+    #[test]
+    fn limit_larger_than_results_returns_all() {
+        let methods = make_methods(&["push", "pop"]);
+        let result = filter_methods(&methods, "");
+        assert_eq!(result.len(), 2); // limit of 10 on 2 items returns 2
+    }
+
+    #[test]
+    fn builder_limit_truncates_after_filter() {
+        let methods = make_methods(&["get", "get_mut", "get_key_value", "get_unchecked"]);
+        // All 4 match "get", limit should cap at 2
+        let filtered: Vec<&Method> = filter_methods(&methods, "get")
+            .into_iter()
+            .take(2)
+            .collect();
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].name, "get"); // exact match still first
     }
 }

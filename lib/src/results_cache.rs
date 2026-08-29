@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use crate::analyzer::Method;
 use crate::probe::cache_key_hash;
 
-// ── Directory ─────────────────────────────────────────────────────────────────
+// Directory
 
 /// Returns the root directory of the persistent results cache.
 ///
@@ -35,7 +35,7 @@ pub fn results_cache_dir() -> PathBuf {
     base.join("rust-meth").join("results")
 }
 
-// ── Entry ─────────────────────────────────────────────────────────────────────
+// Entry
 
 /// Metadata and results for a single results cache entry.
 #[derive(Debug, Clone)]
@@ -64,7 +64,7 @@ struct ResultsFile {
     methods: Vec<Method>,
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// Public API
 
 /// Returns all entries currently in the persistent results cache.
 ///
@@ -166,14 +166,3 @@ fn entry_path(type_name: &str, effective_deps: Option<&str>, ra_version: &str) -
     let hash = cache_key_hash(type_name, effective_deps, None, ra_version);
     results_cache_dir().join(format!("{hash}.json"))
 }
-
-// pub(crate) fn ra_version_string(ra_path: &Path) -> String {
-//     std::process::Command::new(ra_path)
-//         .arg("--version")
-//         .output()
-//         .ok()
-//         .and_then(|o| String::from_utf8(o.stdout).ok())
-//         .map(|s| s.trim().to_string())
-//         .filter(|s| !s.is_empty())
-//         .unwrap_or_else(|| "unknown".to_string())
-// }

@@ -19,8 +19,8 @@ pub mod results_cache;
 pub use error::RustMethError;
 pub use lsp::LspTransport;
 pub use probe::{
-    CacheEntry, PersistentCacheEntry, Probe, cache_entries, clear_persistent_cache,
-    clear_probe_cache, persistent_cache_dir, persistent_cache_entries,
+    CacheEntry, PersistentCacheEntry, Probe, cache_entries, cache_key_hash, clear_persistent_cache,
+    clear_probe_cache, persistent_cache_dir, persistent_cache_entries, ra_version,
 };
 pub use query::{MethodQuery, MethodResult, filter_methods, query_definition_for_methods};
 pub use results_cache::{

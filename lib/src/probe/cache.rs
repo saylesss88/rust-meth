@@ -300,8 +300,8 @@ pub fn cache_entries() -> Vec<CacheEntry> {
 /// Evicts all entries from the probe cache.
 ///
 /// Each entry's directory is deleted when its [`Arc`] reference count reaches
-/// zero immediately if no [`Probe`] is currently borrowing the entry, or
-/// when the last borrowing [`Probe`] is dropped otherwise.
+/// zero immediately if no `Probe` is currently borrowing the entry, or
+/// when the last borrowing `Probe` is dropped otherwise.
 ///
 /// ## Panics
 ///
