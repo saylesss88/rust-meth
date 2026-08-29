@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type")]
 pub enum DaemonCommand {
     /// Query methods available on a Rust type
-    Query(QueryResult),
+    Query(QueryRequest),
     /// Shut the daemon down gracefully.
     Stop,
     /// Request current daemon status.
