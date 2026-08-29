@@ -358,10 +358,13 @@ mod tests {
     #[test]
     fn limit_truncates_results() {
         let methods = make_methods(&["push", "pop", "len", "get", "insert"]);
-        // filter_methods returns all 5, limit should cap at 3
         let result = filter_methods(&methods, "");
-        let limited: Vec<&Method> = result.into_iter().take(3).collect();
-        assert_eq!(limited.len(), 3);
+        let limited: Vec<&str> = result
+            .into_iter()
+            .take(3)
+            .map(|m| m.name.as_str())
+            .collect();
+        assert_eq!(limited, ["push", "pop", "len"]);
     }
 
     #[test]
