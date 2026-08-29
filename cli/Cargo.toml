@@ -20,9 +20,12 @@ targets = []
 name = "rust-meth"
 path = "src/main.rs"
 
+[[bin]]
+name = "rust-meth-daemon"
+path = "src/daemon/src/main.rs"
+
 [dependencies]
 rust-meth-lib = {workspace = true}
-rust-meth-daemon = {workspace = true, optional = true}
 indicatif = {version = "0.18.6", default-features = false}
 owo-colors = "4.4.0"
 dialoguer = {version = "0.12", features = [
@@ -30,14 +33,13 @@ dialoguer = {version = "0.12", features = [
 ], default-features = false}
 fuzzy-matcher = "0.3.7"
 serde_json = {workspace = true}
+serde = "1"
 syntect = {version = "5.3.0", default-features = false, features = [
 	"default-syntaxes",
 	"default-themes",
 	"regex-fancy",
 ]}
+thiserror = "2"
 
 [lints]
 workspace = true
-
-[features]
-daemon = ["dep:rust-meth-daemon"]
