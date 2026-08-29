@@ -181,6 +181,7 @@ pub struct MethodQuery<'a> {
     type_name: &'a str,
     deps: Option<&'a str>,
     filter: Option<&'a str>,
+    limit: Option<usize>,
 }
 
 impl<'a> MethodQuery<'a> {
@@ -198,6 +199,7 @@ impl<'a> MethodQuery<'a> {
             type_name,
             deps: None,
             filter: None,
+            limit: None,
         }
     }
 
@@ -258,10 +260,15 @@ impl<'a> MethodQuery<'a> {
     /// Propagates any error from the underlying LSP session.
     pub fn run(self, ra_path: &std::path::Path) -> Result<Vec<Method>> {
         let methods = query_methods(self.type_name, ra_path, self.deps)?;
-        let filtered = match self.filter {
+        let mut filtered = match self.filter {
             Some(q) => filter_methods(&methods, q).into_iter().cloned().collect(),
             None => methods,
         };
+
+        if let Some(l) = self.limit {
+            filtered.truncate(l);
+        }
+
         Ok(filtered)
     }
 
@@ -286,6 +293,15 @@ impl<'a> MethodQuery<'a> {
         let deps = self.deps;
         let methods = self.run(ra_path)?;
         query_definition_for_methods(&methods, type_name, deps, ra_path)
+    }
+
+    /// Limits the maximum number of methods returned after filtering.
+    ///
+    /// Useful for keeping definition resolution fast when a broad filter matches many items.
+    #[must_use]
+    pub const fn limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit);
+        self
     }
 }
 
