@@ -22,7 +22,7 @@ path = "src/main.rs"
 
 [dependencies]
 rust-meth-lib = {workspace = true}
-rust-meth-daemon = {workspace = true}
+rust-meth-daemon = {workspace = true, optional = true}
 indicatif = {version = "0.18.6", default-features = false}
 owo-colors = "4.4.0"
 dialoguer = {version = "0.12", features = [
