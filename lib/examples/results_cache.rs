@@ -30,7 +30,7 @@ fn main() -> rust_meth_lib::error::Result<()> {
     let ra_path = find_rust_analyzer()?;
 
     // Uncomment to clear the cache on every run
-    rust_meth_lib::results_cache::clear_results_cache().ok();
+    // rust_meth_lib::results_cache::clear_results_cache().ok();
 
     // -- First call -- cold results cache --
     println!("First call (cold cache)...");

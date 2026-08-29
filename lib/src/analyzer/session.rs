@@ -118,7 +118,6 @@ fn query_methods_inner(
         }
     });
 
-    // ── 0. Results cache ──────────────────────────────────────────────────────
     let ra_version = ra_version(ra_path);
     if let Some(methods) = load_results(type_name, effective_deps.as_deref(), &ra_version) {
         return Ok(methods);

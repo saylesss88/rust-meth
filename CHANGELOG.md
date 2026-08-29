@@ -12,6 +12,9 @@ and this project adheres to
 
 ### Added
 
+- `lib/examples/results_cache.rs`: demonstrates the results cache; shows
+  `query_methods` usage before and after a results cache hit.
+- `limit()` method to the builder API to return `N` methods.
 - `results_cache` module: persistent cache for `query_methods` results. Stores
   `Vec<Method>` as JSON in `$XDG_CACHE_HOME/rust-meth/results/`, keyed by
   `(type_name, effective_deps, ra_version, lib_version)`. A cache hit returns
