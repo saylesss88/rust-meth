@@ -22,7 +22,7 @@ session.
 
 Please file an Issue if any problems arise.
 
-## Workspace layout
+## Workspace Layout
 
 ```
 rust-meth/
@@ -53,11 +53,6 @@ rust-meth/
 
 ## Public API
 
-```toml
-[dependencies]
-rust-meth-lib = "0.3.0"
-```
-
 ### Key Types
 
 | Item           | Description                                                                                      |
@@ -70,7 +65,7 @@ rust-meth-lib = "0.3.0"
 
 ```toml
 [dependencies]
-rust-meth-lib = "0.3.0"
+rust-meth-lib = "0.4.0"
 ```
 
 - [rust_meth_lib docs.rs](https://docs.rs/rust-meth-lib/latest/rust_meth_lib/index.html) 
@@ -163,6 +158,43 @@ fn my_wrapper() -> Result<()> {
     Ok(())
 }
 ```
+
+## Caching
+
+`rust-meth-lib` caches at three levels to minimize repeated work:
+
+| Cache | Location | What it skips |
+|---|---|---|
+| In-process | Memory (`Arc`) | Probe directory creation (~65µs) |
+| Persistent probe | `$XDG_CACHE_HOME/rust-meth/probes/` | Cargo resolution for third-party types (~5s) |
+| Persistent results | `$XDG_CACHE_HOME/rust-meth/results/` | Entire LSP session (~0.02s on hit) |
+
+Cache keys include the `rust-analyzer` version and `rust-meth-lib` version,
+upgrades to either automatically invalidate stale entries.
+
+```rust
+use rust_meth_lib::{
+    clear_results_cache, results_cache_entries,
+    clear_persistent_cache, persistent_cache_entries,
+    clear_probe_cache, cache_entries,
+};
+
+// Inspect what's cached
+let results = results_cache_entries();
+for e in results {
+    println!("{}: {} methods (ra {})", e.type_name, e.method_count, e.ra_version);
+}
+
+// Clear everything
+clear_results_cache().ok();
+clear_persistent_cache().ok();
+clear_probe_cache();
+```
+
+On a warm results cache, repeated queries return in ~20ms regardless of crate
+size. See [`results_cache.rs`](examples/results_cache.rs) for a full
+demonstration.
+
 # rust-meth-lib examples
 
 Runnable examples covering the main ways to embed `rust-meth-lib` in your own

@@ -61,6 +61,9 @@ name = "builder_run"
 [[example]]
 name = "builder_definitions"
 
+[[example]]
+name = "results_cache"
+
 [[bench]]
 name = "benchmarks"
 harness = false
