@@ -185,6 +185,111 @@ fn build_cargo_toml(deps: Option<&str>) -> String {
     }
 }
 
+// -- Session key construction --
+
+/// Builds a [`SessionKey`] for the given deps and ra binary.
+///
+/// Runs `cargo metadata` on a temporary workspace to resolve locked versions,
+/// ensuring that `serde_json = "1.0"` and `serde_json = "1.0.219"` produce
+/// the same key. For stdlib-only queries (no deps), skips metadata entirely.
+///
+/// # Errors
+///
+/// Returns an error if `cargo metadata` fails or produces unexpected output.
+pub fn build_session_key(deps: Option<&str>, ra_path: &Path) -> Result<SessionKey, WorkspaceError> {
+    let ra_version = ra_version_string(ra_path);
+    let toolchain = active_toolchain();
+    let locked_deps = resolve_locked_deps(deps)?;
+
+    Ok(SessionKey {
+        locked_deps,
+        ra_version,
+        toolchain,
+    })
+}
+
+/// Resolves dependency versions via `cargo metadata`.
+///
+/// Returns an empty vec for stdlib-only queries.
+fn resolve_locked_deps(deps: Option<&str>) -> Result<Vec<(String, String)>, WorkspaceError> {
+    let Some(deps_str) = deps else {
+        return Ok(Vec::new());
+    };
+
+    // Write a temporary Cargo.toml and run cargo metadata against it.
+    let tmp = std::env::temp_dir().join(format!("rust-meth-resolve-{}", std::process::id()));
+    let src = tmp.join("src");
+    fs::create_dir_all(&src).map_err(WorkspaceError::Io)?;
+    fs::write(
+        tmp.join("Cargo.toml"),
+        format!(
+            "[package]\nname = \"resolve\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n{deps_str}\n"
+        ),
+    )
+    .map_err(WorkspaceError::Io)?;
+    fs::write(src.join("lib.rs"), "").map_err(WorkspaceError::Io)?;
+
+    let output = std::process::Command::new("cargo")
+        .args(["metadata", "--no-deps", "--format-version", "1"])
+        .current_dir(&tmp)
+        .output()
+        .map_err(|e| WorkspaceError::CargoMetadata(e.to_string()))?;
+
+    let _ = fs::remove_dir_all(&tmp);
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(WorkspaceError::CargoMetadata(stderr.to_string()));
+    }
+
+    let meta: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|_| WorkspaceError::MetadataParse)?;
+
+    // Extract resolved package versions from metadata.
+    let packages = meta["packages"]
+        .as_array()
+        .ok_or(WorkspaceError::MetadataParse)?;
+
+    let mut locked: Vec<(String, String)> = packages
+        .iter()
+        .filter_map(|p| {
+            let name = p["name"].as_str()?;
+            let version = p["version"].as_str()?;
+            // Skip the resolve package itself.
+            if name == "resolve" {
+                return None;
+            }
+            Some((name.to_string(), version.to_string()))
+        })
+        .collect();
+
+    // Sort for stable key ordering.
+    locked.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(locked)
+}
+
+fn ra_version_string(ra_path: &Path) -> String {
+    std::process::Command::new(ra_path)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn active_toolchain() -> String {
+    std::process::Command::new("rustup")
+        .args(["show", "active-toolchain"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// Generates the per-query `scratch.rs` content with `type_name` injected.
 fn scratch_source(type_name: &str) -> String {
     format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
