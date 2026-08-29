@@ -1,8 +1,12 @@
+use crate::daemon::client;
+use crate::ui::args;
 use crate::ui::{self, Opts};
-use owo_colors::OwoColorize;
-use rust_meth_lib::analyzer;
+
 use std::process;
 use std::time::Instant;
+
+use owo_colors::OwoColorize;
+use rust_meth_lib::analyzer;
 
 /// The primary entry point for the application logic.
 ///
@@ -128,6 +132,57 @@ fn parse_or_exit(version: &str) -> Result<Opts, String> {
             println!("{text}");
             process::exit(0);
         }
+        ui::ParseResult::Daemon(sub) => {
+            handle_daemon_command(&sub);
+            process::exit(0);
+        }
+    }
+}
+
+/// Dispatches daemon management subcommands.
+fn handle_daemon_command(sub: &args::DaemonSubcommand) {
+    match sub {
+        args::DaemonSubcommand::Start { ttl_secs } => {
+            if client::daemon_running()
+                && let Some(info) = client::try_status()
+            {
+                eprintln!(
+                    "daemon already running (pid {}, {} active sessions)",
+                    info.pid, info.active_sessions
+                );
+                return;
+            }
+            // Spawn the daemon in the foreground, user should background it
+            // with & or a process manager.
+            match crate::daemon::start(*ttl_secs) {
+                Ok(()) => {}
+                Err(e) => {
+                    eprintln!("failed to start daemon: {e}");
+                    process::exit(1);
+                }
+            }
+        }
+        args::DaemonSubcommand::Stop => {
+            if !client::daemon_running() {
+                eprintln!("daemon is not running.");
+                return;
+            }
+            if client::try_stop() {
+                println!("daemon stopped.");
+            } else {
+                eprintln!("failed to stop daemon.");
+                process::exit(1);
+            }
+        }
+        args::DaemonSubcommand::Status => match client::try_status() {
+            Some(info) => {
+                println!("daemon: running");
+                println!("  pid:      {}", info.pid);
+                println!("  uptime:   {}s", info.uptime_secs);
+                println!("  sessions: {}", info.active_sessions);
+            }
+            None => println!("daemon: not running"),
+        },
     }
 }
 
@@ -198,6 +253,36 @@ fn query_methods_with_spinner(
     opts: &Opts,
     ra_path: &std::path::Path,
 ) -> Result<Vec<analyzer::Method>, String> {
+    if client::daemon_running()
+        && let Some(Ok(resp)) = client::try_query(&opts.type_name, opts.deps.as_deref())
+    {
+        let spinner = ui::indexing(&opts.type_name);
+        spinner.finish_with_message(format!(
+            "✓ Found {} methods ({:.1}s, daemon {})",
+            resp.methods.len(),
+            resp.elapsed_ms as f64 / 1000.0,
+            if resp.from_results_cache {
+                "cache"
+            } else if resp.session_reused {
+                "warm session"
+            } else {
+                "new session"
+            }
+        ));
+        // Convert daemon MethodData to analyzer::Method
+        return Ok(resp
+            .methods
+            .into_iter()
+            .map(|m| analyzer::Method {
+                name: m.name,
+                detail: m.detail,
+                documentation: m.documentation,
+            })
+            .collect());
+
+        // Daemon running but query failed, fall through to standard path.
+    }
+
     let start = Instant::now();
     let spinner = ui::indexing(&opts.type_name);
 
