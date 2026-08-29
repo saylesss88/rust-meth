@@ -68,7 +68,24 @@ pub enum ParseResult {
     /// Represents an explicit request for application generation identifiers. Contains
     /// the version string destined for standard output before exiting the process.
     Version(String),
+
+    /// Daemon management command
+    Daemon(DaemonSubcommand),
 }
+
+/// Daemon management subcommands.
+pub enum DaemonSubcommand {
+    /// Start the daemon in the foreground.
+    Start {
+        /// Session TTL in seconds (default: 600).
+        ttl_secs: u64,
+    },
+    /// Stop a running daemon.
+    Stop,
+    /// Print daemon status.
+    Status,
+}
+
 /// Builds the CLI help text.
 #[must_use]
 pub fn usage(bin: &str) -> String {
@@ -122,6 +139,20 @@ pub fn usage(bin: &str) -> String {
         s,
         "  {bin} 'Result<u8,String>' --explain unwrap_unchecked --browser  # open in browser\n"
     );
+
+    writeln!(
+        s,
+        "  {bin} --daemon start              # start the daemon\n"
+    );
+    writeln!(
+        s,
+        "  {bin} --daemon start --ttl 300   # start with 5 min TTL\n"
+    );
+    writeln!(s, "  {bin} --daemon stop               # stop the daemon\n");
+    writeln!(
+        s,
+        "  {bin} --daemon status             # show daemon status\n"
+    );
     s
 }
 
@@ -156,6 +187,28 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
 
     if first.starts_with('-') {
         return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));
+    }
+
+    if first == "--daemon" {
+        let sub = args
+            .next()
+            .ok_or_else(|| "--daemon requires a subcommand: start, stop, status".to_string())?;
+        return match sub.as_str() {
+            "start" => {
+                let ttl_secs = args
+                    .next()
+                    .filter(|a| a == "--ttl")
+                    .and_then(|_| args.next())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(600);
+                Ok(ParseResult::Daemon(DaemonSubcommand::Start { ttl_secs }))
+            }
+            "stop" => Ok(ParseResult::Daemon(DaemonSubcommand::Stop)),
+            "status" => Ok(ParseResult::Daemon(DaemonSubcommand::Status)),
+            other => Err(format!(
+                "unknown daemon subcommand '{other}'. Expected: start, stop, status"
+            )),
+        };
     }
 
     let type_name = first;

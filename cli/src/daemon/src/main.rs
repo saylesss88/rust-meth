@@ -14,6 +14,7 @@
 //! rust-meth-daemon query --type 'serde_json::Value' --deps 'serde_json = "1.0"'
 //! ```
 
+mod client;
 mod pool;
 mod protocol;
 mod server;
