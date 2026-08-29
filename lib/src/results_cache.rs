@@ -115,7 +115,8 @@ pub fn clear_results_cache() -> std::io::Result<()> {
 /// Attempts to load cached methods for the given query parameters.
 ///
 /// Returns `None` if no entry exists or if the file is malformed.
-pub(crate) fn load_results(
+#[must_use]
+pub fn load_results(
     type_name: &str,
     effective_deps: Option<&str>,
     ra_version: &str,
@@ -134,7 +135,7 @@ pub(crate) fn load_results(
 /// Saves method results to the persistent cache.
 ///
 /// Failures are silent, a failed write doesn't affect the query result.
-pub(crate) fn save_results(
+pub fn save_results(
     type_name: &str,
     effective_deps: Option<&str>,
     ra_version: &str,
