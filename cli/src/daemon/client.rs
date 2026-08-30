@@ -64,13 +64,14 @@ struct StatusResponse {
 #[must_use]
 pub fn socket_path() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(std::env::temp_dir)
-                .join(".cache")
-        })
+        .map_or_else(
+            || {
+                std::env::var_os("HOME")
+                    .map_or_else(std::env::temp_dir, PathBuf::from)
+                    .join(".cache")
+            },
+            PathBuf::from,
+        )
         .join("rust-meth")
         .join("daemon.sock")
 }

@@ -34,7 +34,7 @@ impl SessionKey {
     #[must_use]
     pub fn dir_name(&self) -> String {
         if self.locked_deps.is_empty() {
-            format!("stdlib-{}", &self.ra_version.replace(' ', "_"))
+            format!("stdlib-{}", self.ra_version.replace(' ', "_"))
         } else {
             let deps = self
                 .locked_deps
@@ -42,7 +42,7 @@ impl SessionKey {
                 .map(|(k, v)| format!("{k}@{v}"))
                 .collect::<Vec<_>>()
                 .join("+");
-            format!("{deps}-{}", &self.ra_version.replace(' ', "_"))
+            format!("{deps}-{}", self.ra_version.replace(' ', "_"))
         }
     }
 }
@@ -99,14 +99,14 @@ impl DaemonWorkspace {
 /// Returns the root directory for all daemon workspaces.
 #[must_use]
 pub fn workspaces_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_CACHE_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
+    let base = std::env::var_os("XDG_CACHE_HOME").map_or_else(
+        || {
             std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(std::env::temp_dir)
+                .map_or_else(std::env::temp_dir, PathBuf::from)
                 .join(".cache")
-        });
+        },
+        PathBuf::from,
+    );
     base.join("rust-meth").join("workspaces")
 }
 
@@ -174,8 +174,7 @@ fn lib_source(deps: Option<&str>) -> String {
             let crate_name = line
                 .split('=')
                 .next()
-                .map(str::trim)
-                .unwrap_or("")
+                .map_or("", str::trim)
                 .replace('-', "_");
             if !crate_name.is_empty() && !crate_name.starts_with('[') {
                 lines.push(format!("extern crate {crate_name};"));
@@ -204,10 +203,10 @@ use std::path::{Path, PathBuf};\n";
 
 fn build_cargo_toml(deps: Option<&str>) -> String {
     let base = "[package]\nname = \"probe\"\nversion = \"0.1.0\"\nedition = \"2024\"\n";
-    match deps {
-        None => base.to_string(),
-        Some(d) => format!("{base}\n[dependencies]\n{d}\n"),
-    }
+    deps.map_or_else(
+        || base.to_string(),
+        |d| format!("{base}\n[dependencies]\n{d}\n"),
+    )
 }
 
 // -- Session key construction --

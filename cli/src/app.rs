@@ -249,6 +249,7 @@ fn handle_definition_mode(opts: &Opts, ra_path: &std::path::Path) -> Result<bool
 ///
 /// Returns an `Err` containing the underlying analysis layer failure if parsing or background
 /// indexing crashes.
+#[allow(clippy::cast_precision_loss)]
 fn query_methods_with_spinner(
     opts: &Opts,
     ra_path: &std::path::Path,

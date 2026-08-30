@@ -24,5 +24,5 @@ pub fn start(ttl_secs: u64) -> std::io::Result<()> {
     );
 
     let pool = SessionPool::new(ra_path.clone(), ttl_secs);
-    server::run(pool, &ra_path)
+    server::run(pool, ra_path)
 }

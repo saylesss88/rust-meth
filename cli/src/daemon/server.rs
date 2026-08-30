@@ -15,13 +15,14 @@ use crate::daemon::protocol::{
 #[must_use]
 pub fn socket_path() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(std::env::temp_dir)
-                .join(".cache")
-        })
+        .map_or_else(
+            || {
+                std::env::var_os("HOME")
+                    .map_or_else(std::env::temp_dir, PathBuf::from)
+                    .join(".cache")
+            },
+            PathBuf::from,
+        )
         .join("rust-meth")
         .join("daemon.sock")
 }
@@ -41,7 +42,8 @@ pub fn pid_path() -> PathBuf {
 ///
 /// Returns an error if the socket cannot be bound or the PID file cannot
 /// be written.
-pub fn run(pool: SessionPool, ra_path: &std::path::PathBuf) -> std::io::Result<()> {
+#[allow(clippy::needless_pass_by_value)]
+pub fn run(pool: SessionPool, ra_path: std::path::PathBuf) -> std::io::Result<()> {
     let sock = socket_path();
     if let Some(parent) = sock.parent() {
         std::fs::create_dir_all(parent)?;
@@ -59,7 +61,7 @@ pub fn run(pool: SessionPool, ra_path: &std::path::PathBuf) -> std::io::Result<(
     eprintln!("[daemon] listening on {}", sock.display());
 
     let pool = Arc::new(Mutex::new(pool));
-    let ra_version = ra_version(ra_path);
+    let ra_version = ra_version(&ra_path);
 
     for stream in listener.incoming() {
         match stream {
@@ -68,7 +70,7 @@ pub fn run(pool: SessionPool, ra_path: &std::path::PathBuf) -> std::io::Result<(
                 let ra_version = ra_version.clone();
                 let ra_path = ra_path.clone();
                 std::thread::spawn(move || {
-                    if let Err(e) = handle_connection(stream, pool, &ra_version, &ra_path) {
+                    if let Err(e) = handle_connection(stream, &pool, &ra_version, &ra_path) {
                         eprintln!("[daemon] connection error: {e}");
                     }
                 });
@@ -90,7 +92,7 @@ pub fn run(pool: SessionPool, ra_path: &std::path::PathBuf) -> std::io::Result<(
 /// Returns `true` if the daemon should stop.
 fn handle_connection(
     stream: UnixStream,
-    pool: Arc<Mutex<SessionPool>>,
+    pool: &Arc<Mutex<SessionPool>>,
     ra_version: &str,
     ra_path: &std::path::Path,
 ) -> std::io::Result<bool> {
@@ -129,7 +131,7 @@ fn handle_connection(
 /// Dispatches a command to the appropriate handler.
 fn dispatch(
     command: DaemonCommand,
-    pool: Arc<Mutex<SessionPool>>,
+    pool: &Arc<Mutex<SessionPool>>,
     ra_version: &str,
     _ra_path: &std::path::Path,
 ) -> DaemonResponse {
