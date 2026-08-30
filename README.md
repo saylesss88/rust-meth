@@ -29,8 +29,8 @@ the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library 
 
 | Crate | Path | Description |
 |-------|------|-------------|
-| `rust-meth` | `cli/` | CLI binary — argument parsing, output, interactive UI |
-| `rust-meth-lib` | `lib/` | Library — rust-analyzer integration, type resolution, method lookup |
+| `rust-meth` | `cli/` | CLI binary: argument parsing, output, interactive UI |
+| `rust-meth-lib` | `lib/` | Library: rust-analyzer integration, type resolution, method lookup |
 
 ## Highlights
 
@@ -272,6 +272,51 @@ rust-meth u8 --explain checked_add --browser
 
 ---
 
+<a id="daemon"></a>
+## Daemon mode
+
+For interactive sessions where you query many types from the same crate,
+`rust-meth` includes a persistent daemon that keeps a warm `rust-analyzer`
+session alive between queries. Instead of spawning and tearing down a
+subprocess for every invocation, the daemon reuses the session via
+`textDocument/didChange`, cutting repeated queries from ~3s to ~0.1s.
+
+```sh
+# Start the daemon in the background
+rust-meth --daemon start &
+
+# Queries now use the warm session automatically
+rust-meth 'RefCell<u8>'          # ~3s first query (new session)
+rust-meth 'Cell<u8>'             # ~0.1s (warm session, same deps)
+rust-meth 'Mutex<u8>'            # ~0.1s
+
+# Third-party types get their own session keyed by dep set
+rust-meth 'serde_json::Value' --deps 'serde_json = "1.0"'
+rust-meth 'serde_json::Map<String, serde_json::Value>' --deps 'serde_json = "1.0"'  # ~0.1s
+
+# Check status
+rust-meth --daemon status
+
+# Stop when done
+rust-meth --daemon stop
+```
+
+The daemon falls back gracefully, if it isn't running, `rust-meth` behaves
+exactly as before, using the file-based results cache and standard LSP sessions.
+
+Sessions are keyed by dependency set, so stdlib types share one session,
+`serde_json` types share another, and so on. Sessions expire after 10 minutes
+of inactivity (configurable with `--ttl`):
+
+```sh
+rust-meth --daemon start --ttl 300   # 5 minute TTL
+```
+
+> [!NOTE]
+> The daemon is most useful for exploratory sessions, browsing an unfamiliar
+> crate, comparing methods across related types, or running many queries in
+> quick succession. For one-off queries the results cache already handles
+> repeated lookups instantly.
 
 <a id="call-snippets"></a>
 ## Call snippets
