@@ -96,14 +96,12 @@ fn handle_connection(
     ra_version: &str,
     ra_path: &std::path::Path,
 ) -> std::io::Result<bool> {
-    eprintln!("[daemon] connection received");
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
 
     let mut line = String::new();
     reader.read_line(&mut line)?;
 
-    eprintln!("[daemon] received: {line}");
     let line = line.trim();
 
     if line.is_empty() {
@@ -137,7 +135,6 @@ fn dispatch(
 ) -> DaemonResponse {
     match command {
         DaemonCommand::Query(req) => {
-            eprintln!("[daemon] dispatching query for {}", req.type_name);
             let start = std::time::Instant::now();
             let type_name = &req.type_name;
             let deps = req.deps.as_deref();
@@ -145,7 +142,6 @@ fn dispatch(
             // Results cache check
             // Check the persistent results cache before touching the pool.
             // If we have cached results, return immediately. No LSP needed.
-            eprintln!("[daemon] checking results cache...");
             if let Some(methods) = load_results(type_name, deps, ra_version) {
                 // let elapsed_ms = start.elapsed().as_millis() as u64;
                 let elapsed_ms =
@@ -158,20 +154,16 @@ fn dispatch(
                 });
             }
 
-            eprintln!("[daemon] acquiring pool lock...");
             let result = {
                 let mut pool = pool.lock().expect("pool lock poisoned");
-                eprintln!("[daemon] pool locked, querying...");
                 pool.query(type_name, deps)
             };
-            eprintln!("[daemon] pool query done in {:?}", start.elapsed());
 
             match result {
                 Ok((methods, session_reused)) => {
                     // Save to results cache for future process invocations.
                     save_results(type_name, deps, ra_version, &methods);
 
-                    // let elapsed_ms = start.elapsed().as_millis() as u64;
                     let elapsed_ms =
                         u64::try_from(start.elapsed().as_millis()).expect("should succeed");
                     DaemonResponse::QueryResult(QueryResponse {
