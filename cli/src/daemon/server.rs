@@ -6,8 +6,10 @@ use std::sync::{Arc, Mutex};
 use rust_meth_lib::probe::ra_version;
 use rust_meth_lib::results_cache::{load_results, save_results};
 
-use crate::pool::{PoolError, SessionPool};
-use crate::protocol::{DaemonCommand, DaemonResponse, MethodData, QueryResponse, StatusResponse};
+use crate::daemon::pool::SessionPool;
+use crate::daemon::protocol::{
+    DaemonCommand, DaemonResponse, MethodData, QueryResponse, StatusResponse,
+};
 
 /// Returns the path to the daemon Unix socket.
 #[must_use]
@@ -39,7 +41,7 @@ pub fn pid_path() -> PathBuf {
 ///
 /// Returns an error if the socket cannot be bound or the PID file cannot
 /// be written.
-pub fn run(pool: SessionPool, ra_path: std::path::PathBuf) -> std::io::Result<()> {
+pub fn run(pool: SessionPool, ra_path: &std::path::PathBuf) -> std::io::Result<()> {
     let sock = socket_path();
     if let Some(parent) = sock.parent() {
         std::fs::create_dir_all(parent)?;
@@ -57,7 +59,7 @@ pub fn run(pool: SessionPool, ra_path: std::path::PathBuf) -> std::io::Result<()
     eprintln!("[daemon] listening on {}", sock.display());
 
     let pool = Arc::new(Mutex::new(pool));
-    let ra_version = ra_version(&ra_path);
+    let ra_version = ra_version(ra_path);
 
     for stream in listener.incoming() {
         match stream {
@@ -92,11 +94,14 @@ fn handle_connection(
     ra_version: &str,
     ra_path: &std::path::Path,
 ) -> std::io::Result<bool> {
+    eprintln!("[daemon] connection received");
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut writer = stream;
 
     let mut line = String::new();
     reader.read_line(&mut line)?;
+
+    eprintln!("[daemon] received: {line}");
     let line = line.trim();
 
     if line.is_empty() {
@@ -126,19 +131,23 @@ fn dispatch(
     command: DaemonCommand,
     pool: Arc<Mutex<SessionPool>>,
     ra_version: &str,
-    ra_path: &std::path::Path,
+    _ra_path: &std::path::Path,
 ) -> DaemonResponse {
     match command {
         DaemonCommand::Query(req) => {
+            eprintln!("[daemon] dispatching query for {}", req.type_name);
             let start = std::time::Instant::now();
             let type_name = &req.type_name;
             let deps = req.deps.as_deref();
 
             // Results cache check
             // Check the persistent results cache before touching the pool.
-            // If we have cached results, return immediately — no LSP needed.
+            // If we have cached results, return immediately. No LSP needed.
+            eprintln!("[daemon] checking results cache...");
             if let Some(methods) = load_results(type_name, deps, ra_version) {
-                let elapsed_ms = start.elapsed().as_millis() as u64;
+                // let elapsed_ms = start.elapsed().as_millis() as u64;
+                let elapsed_ms =
+                    u64::try_from(start.elapsed().as_millis()).expect("should succeed");
                 return DaemonResponse::QueryResult(QueryResponse {
                     methods: methods.into_iter().map(MethodData::from).collect(),
                     session_reused: false,
@@ -147,18 +156,22 @@ fn dispatch(
                 });
             }
 
-            // ── Session pool query ────────────────────────────────────────────
+            eprintln!("[daemon] acquiring pool lock...");
             let result = {
                 let mut pool = pool.lock().expect("pool lock poisoned");
+                eprintln!("[daemon] pool locked, querying...");
                 pool.query(type_name, deps)
             };
+            eprintln!("[daemon] pool query done in {:?}", start.elapsed());
 
             match result {
                 Ok((methods, session_reused)) => {
                     // Save to results cache for future process invocations.
                     save_results(type_name, deps, ra_version, &methods);
 
-                    let elapsed_ms = start.elapsed().as_millis() as u64;
+                    // let elapsed_ms = start.elapsed().as_millis() as u64;
+                    let elapsed_ms =
+                        u64::try_from(start.elapsed().as_millis()).expect("should succeed");
                     DaemonResponse::QueryResult(QueryResponse {
                         methods: methods.into_iter().map(MethodData::from).collect(),
                         session_reused,

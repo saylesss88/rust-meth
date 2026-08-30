@@ -2,6 +2,7 @@
 //! It leverages `rust-analyzer` via the Language Server Protocol (LSP) to provide
 //! accurate, context-aware method resolution.
 pub mod app;
+pub mod daemon;
 pub mod ui;
 
 use std::process;

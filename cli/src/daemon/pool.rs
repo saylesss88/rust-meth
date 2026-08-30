@@ -1,17 +1,12 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::time::Instant;
 
 use rust_meth_lib::analyzer::Method;
-use rust_meth_lib::error::Result;
 
-use crate::session::RaSession;
-use crate::workspace::{
-    DaemonWorkspace, SessionKey, WorkspaceError, build_session_key, open_or_create,
-};
+use super::session::RaSession;
+use super::workspace::{SessionKey, WorkspaceError, build_session_key, open_or_create};
 
-/// Default session TTL in seconds (10 minutes).
-pub const DEFAULT_TTL_SECS: u64 = 600;
+// pub const DEFAULT_TTL_SECS: u64 = 600;
 
 /// Error type for pool operations.
 #[derive(Debug, thiserror::Error)]
@@ -66,7 +61,9 @@ impl SessionPool {
 
         if !session_reused {
             let workspace = open_or_create(&key, deps, type_name)?;
+            eprintln!("[daemon] spawning session...");
             let session = RaSession::spawn(&self.ra_path, workspace).map_err(PoolError::Lsp)?;
+            eprintln!("[daemon] session spawned");
             self.sessions.insert(key.clone(), session);
         }
 
@@ -89,6 +86,7 @@ impl SessionPool {
     }
 
     /// Shuts down all sessions gracefully.
+    #[allow(dead_code)]
     pub fn shutdown_all(self) {
         for (_, session) in self.sessions {
             session.shutdown();

@@ -6,7 +6,7 @@ use rust_meth_lib::LspTransport;
 use rust_meth_lib::analyzer::Method;
 use rust_meth_lib::error::{Result, RustMethError};
 
-use crate::workspace::DaemonWorkspace;
+use crate::daemon::workspace::DaemonWorkspace;
 
 /// A live rust-analyzer session attached to a daemon workspace.
 pub struct RaSession {
@@ -54,7 +54,7 @@ impl RaSession {
             &scratch_source,
         ))?;
 
-        // ── Wait for indexing to complete ─────────────────────────────────────
+        // Wait for indexing to complete
         wait_for_indexing(&mut lsp);
 
         Ok(Self {
@@ -81,16 +81,6 @@ impl RaSession {
         // textDocument/didChange
         let change = did_change(&self.workspace.scratch_uri(), &new_source);
         self.lsp.send(&change)?;
-
-        // Wait for diagnostics to settle
-        // After didChange RA re-parses scratch.rs. We wait for a
-        // publishDiagnostics notification for our file before firing
-        // the completion request.
-        let scratch_uri = self.workspace.scratch_uri();
-        let diag_msg = wait_for_scratch_diagnostics(&mut self.lsp, &scratch_uri);
-
-        // Check for type errors in the diagnostics.
-        check_diagnostics(type_name, diag_msg.as_ref())?;
 
         // Completion
         let completion = retry_completion(
@@ -153,61 +143,37 @@ fn wait_for_indexing(lsp: &mut LspTransport) {
     });
 }
 
-/// Waits for a `textDocument/publishDiagnostics` for `scratch_uri` after
-/// a `didChange`. Returns the diagnostic message for error checking.
-fn wait_for_scratch_diagnostics(
-    lsp: &mut LspTransport,
-    scratch_uri: &str,
-) -> Option<serde_json::Value> {
-    let mut last_diag: Option<serde_json::Value> = None;
-    let start = std::time::Instant::now();
+const BLANKET_FALLBACK_METHODS: &[&str] = &[
+    "clamp",
+    "clone",
+    "clone_from",
+    "clone_into",
+    "cmp",
+    "eq",
+    "ge",
+    "gt",
+    "into",
+    "le",
+    "lt",
+    "max",
+    "min",
+    "ne",
+    "not",
+    "partial_cmp",
+    "to_owned",
+    "to_string",
+    "try_into",
+];
 
-    let _ = lsp.recv_until(50, |msg| {
-        if start.elapsed() > std::time::Duration::from_secs(30) {
-            return Some(());
-        }
-        let method = msg["method"].as_str().unwrap_or("");
-        if method == "textDocument/publishDiagnostics"
-            && msg["params"]["uri"].as_str() == Some(scratch_uri)
-        {
-            last_diag = Some(msg.clone());
-            Some(())
-        } else {
-            None
-        }
-    });
-
-    last_diag
-}
-
-/// Checks diagnostics for type errors, returning an appropriate error variant.
-fn check_diagnostics(type_name: &str, diag_msg: Option<&serde_json::Value>) -> Result<()> {
-    let Some(msg) = diag_msg else { return Ok(()) };
-    let diagnostics = msg["params"]["diagnostics"]
-        .as_array()
-        .map_or(&[][..], Vec::as_slice);
-
-    for diag in diagnostics {
-        if diag["severity"].as_u64() != Some(1) {
-            continue;
-        }
-        if let Some(rendered) = diag["data"]["rendered"].as_str()
-            && (rendered.contains("configured out") || rendered.contains("gated behind"))
-        {
-            return Err(RustMethError::FeatureGated {
-                type_name: type_name.to_string(),
-                message: rendered.to_string(),
-            });
-        }
-        let message = diag["message"].as_str().unwrap_or("");
-        if message.contains("cannot find type") || message.contains("not found in") {
-            return Err(RustMethError::TypeNotFound {
-                type_name: type_name.to_string(),
-                message: message.to_string(),
-            });
-        }
-    }
-    Ok(())
+fn is_blanket_fallback(items: &[serde_json::Value]) -> bool {
+    use std::collections::BTreeSet;
+    let names: BTreeSet<&str> = items
+        .iter()
+        .filter_map(|i| i["label"].as_str())
+        .map(|label| label.split('(').next().unwrap_or(label).trim())
+        .collect();
+    let fallback: BTreeSet<&str> = BLANKET_FALLBACK_METHODS.iter().copied().collect();
+    !names.is_empty() && names == fallback
 }
 
 /// Retries completion requests until RA returns non-blanket results.
@@ -232,7 +198,7 @@ fn retry_completion(
             .cloned()
             .unwrap_or_default();
 
-        if !items.is_empty() {
+        if !items.is_empty() && !is_blanket_fallback(&items) {
             return Ok(msg);
         }
 

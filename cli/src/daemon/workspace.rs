@@ -128,19 +128,19 @@ pub fn open_or_create(
         fs::write(&cargo_toml_path, cargo_toml)?;
     }
 
-    // lib.rs is stable — preamble imports that keep the index warm.
+    // lib.rs is stable, preamble imports that keep the index warm.
     let lib_path = src_dir.join("lib.rs");
-    if !lib_path.exists() {
-        fs::write(&lib_path, lib_source(deps))?;
-    }
+    // if !lib_path.exists() {
+    fs::write(&lib_path, lib_source(deps))?;
+    // }
 
     // scratch.rs is ephemeral, written fresh for each query type.
     let scratch_path = src_dir.join("scratch.rs");
     let source = scratch_source(initial_type);
     fs::write(&scratch_path, &source)?;
 
-    // dot position: fn main() is line 0, let _x is line 1, _x. is line 2
-    let dot_line = 2u32;
+    // let dot_line = 2u32;
+    let dot_line = 11u32;
     let dot_col = u32::try_from("    _x.".len()).expect("literal length fits u32");
 
     Ok(DaemonWorkspace {
@@ -182,13 +182,24 @@ fn lib_source(deps: Option<&str>) -> String {
             }
         }
     }
+    lines.push("mod scratch;".to_string());
 
     lines.join("\n") + "\n"
 }
 
 /// Generates the per-query `scratch.rs` content with `type_name` injected.
 fn scratch_source(type_name: &str) -> String {
-    format!("fn main() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
+    let preamble = "#![allow(unused_imports, unreachable_code)]\n\
+use std::collections::*;\n\
+use std::sync::*;\n\
+use std::cell::*;\n\
+use std::rc::Rc;\n\
+use std::io::{self, Read, Write, BufRead};\n\
+use std::fmt;\n\
+use std::ops::*;\n\
+use std::path::{Path, PathBuf};\n";
+
+    format!("{preamble}pub fn _query() {{\n    let _x: {type_name} = todo!();\n    _x.\n}}\n")
 }
 
 fn build_cargo_toml(deps: Option<&str>) -> String {

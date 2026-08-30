@@ -140,16 +140,16 @@ pub fn usage(bin: &str) -> String {
         "  {bin} 'Result<u8,String>' --explain unwrap_unchecked --browser  # open in browser\n"
     );
 
-    writeln!(
+    let _ = writeln!(
         s,
         "  {bin} --daemon start              # start the daemon\n"
     );
-    writeln!(
+    let _ = writeln!(
         s,
         "  {bin} --daemon start --ttl 300   # start with 5 min TTL\n"
     );
-    writeln!(s, "  {bin} --daemon stop               # stop the daemon\n");
-    writeln!(
+    let _ = writeln!(s, "  {bin} --daemon stop               # stop the daemon\n");
+    let _ = writeln!(
         s,
         "  {bin} --daemon status             # show daemon status\n"
     );
@@ -185,10 +185,6 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
         return Ok(ParseResult::Version(format!("{bin} {version}")));
     }
 
-    if first.starts_with('-') {
-        return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));
-    }
-
     if first == "--daemon" {
         let sub = args
             .next()
@@ -209,6 +205,10 @@ pub fn parse_args(version: &str) -> Result<ParseResult, String> {
                 "unknown daemon subcommand '{other}'. Expected: start, stop, status"
             )),
         };
+    }
+
+    if first.starts_with('-') {
+        return Err(format!("unexpected argument '{first}'\n\n{}", usage(&bin)));
     }
 
     let type_name = first;
