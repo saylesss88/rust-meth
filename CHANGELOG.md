@@ -8,6 +8,58 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-30
+
+### Added
+
+- `rust-meth --daemon start`: starts a persistent `rust-analyzer` session
+  manager in the foreground. Subsequent `rust-meth` queries automatically use
+  the daemon when it is running, falling back to the standard LSP path if it is
+  not.
+- `rust-meth --daemon stop`: gracefully shuts down the daemon.
+- `rust-meth --daemon status`: prints daemon pid, uptime, and active session
+  count.
+- `rust-meth --daemon start --ttl <secs>`: configures session idle timeout
+  (default: 600s).
+- `SessionPool`: manages a pool of rust-analyzer sessions keyed by
+  `(locked_deps, ra_version, toolchain)`. Types sharing the same dependency set
+  reuse one session via `textDocument/didChange` rather than spawning a new
+  subprocess.
+- `DaemonWorkspace`: stable on-disk Cargo workspace per session key under
+  `$XDG_CACHE_HOME/rust-meth/workspaces/`. `lib.rs` is written once and keeps
+  the index warm; `scratch.rs` is rewritten per query with the target type
+  injected.
+- Blanket fallback detection in daemon completion retry, rejects the generic
+  trait-impl set and retries until rust-analyzer returns real results.
+- Daemon client integrated directly into the CLI query path. No separate binary
+  required.
+
+### Changed
+
+- `parse_args` refactored into focused helpers: `current_bin`,
+  `check_early_exits`, `parse_daemon_subcommand`, `parse_flags`,
+  `validate_opts`.
+- `app.rs` `query_methods_with_spinner` now checks the daemon socket before
+  falling through to the standard LSP session.
+- Daemon module lives in `cli/src/daemon/` — `mod.rs`, `client.rs`, `server.rs`,
+  `session.rs`, `pool.rs`, `workspace.rs`, `protocol.rs`.
+
+### Performance
+
+- Daemon warm session: repeated queries against the same dependency set drop
+  from ~3s to ~0.1s.
+- First query of a new type still pays the rust-analyzer startup cost (~3s for
+  stdlib, `~8s` for large third-party crates). Subsequent queries of the same
+  type hit the results cache (`~0.0s`) regardless of whether the daemon is
+  running.
+
+| Query path               | Time  |
+| ------------------------ | ----- |
+| Results cache hit        | ~0.0s |
+| Daemon warm session      | ~0.1s |
+| Daemon new session       | ~3–8s |
+| Standard LSP (no daemon) | ~3–8s |
+
 # [rust-meth-lib 0.4.0]
 
 ### Added

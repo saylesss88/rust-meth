@@ -206,7 +206,7 @@ fn check_early_exits(bin: &str, version: &str, first: &str) -> Option<Result<Par
     }
 }
 
-/// Parses --daemon <subcommand> [--ttl <secs>].
+/// Parses `--daemon <subcommand> [--ttl <secs>]`.
 fn parse_daemon_subcommand(args: &mut impl Iterator<Item = String>) -> Result<ParseResult, String> {
     let sub = args
         .next()
