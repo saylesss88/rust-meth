@@ -127,6 +127,9 @@ fn handle_connection(
 }
 
 /// Dispatches a command to the appropriate handler.
+/// ## Panics
+///
+/// If the pool lock is poisoned
 fn dispatch(
     command: DaemonCommand,
     pool: &Arc<Mutex<SessionPool>>,
@@ -142,10 +145,9 @@ fn dispatch(
             // Results cache check
             // Check the persistent results cache before touching the pool.
             // If we have cached results, return immediately. No LSP needed.
+            #[allow(clippy::cast_possible_truncation)]
             if let Some(methods) = load_results(type_name, deps, ra_version) {
-                // let elapsed_ms = start.elapsed().as_millis() as u64;
-                let elapsed_ms =
-                    u64::try_from(start.elapsed().as_millis()).expect("should succeed");
+                let elapsed_ms = start.elapsed().as_millis() as u64;
                 return DaemonResponse::QueryResult(QueryResponse {
                     methods: methods.into_iter().map(MethodData::from).collect(),
                     session_reused: false,
@@ -164,8 +166,8 @@ fn dispatch(
                     // Save to results cache for future process invocations.
                     save_results(type_name, deps, ra_version, &methods);
 
-                    let elapsed_ms =
-                        u64::try_from(start.elapsed().as_millis()).expect("should succeed");
+                    #[allow(clippy::cast_possible_truncation)]
+                    let elapsed_ms = start.elapsed().as_millis() as u64;
                     DaemonResponse::QueryResult(QueryResponse {
                         methods: methods.into_iter().map(MethodData::from).collect(),
                         session_reused,
