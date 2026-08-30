@@ -45,8 +45,8 @@ the core analysis logic lives in the [`rust-meth-lib`](./lib/README.md) library 
 - Colorized output, JSON output, and call snippets
 - Explain any method's full documentation with `--explain`
 - Syntax Highlighting of ```rust blocks in output from `--explain`
-- Persistent cache, third-party type queries skip Cargo resolution on subsequent
-  invocations.
+- Three-tier persistent cache: results (~0.0s), probe (skips Cargo resolution),
+  and daemon workspaces (warm sessions at ~0.1s)
 
 ## Requirements
 
@@ -100,9 +100,11 @@ For full flag reference and detailed examples, see the sections below.
 - [Open in browser](#open-in-browser)
 - [Explain a method](#explain-a-method)
 - [3rd party crates](#3rd-party-crates)
+- [Daemon mode](#daemon-mode)
+- [Caching](#caching)
 - [Call snippets](#call-snippets)
 - [JSON output](#json-output)
-- [Syntax highliting](#syntax-highlighting)
+- [Syntax highlighting](#syntax-highlighting)
 - [How it works](#how-it-works)
 - [License](#license)
 
@@ -317,6 +319,49 @@ rust-meth --daemon start --ttl 300   # 5 minute TTL
 > crate, comparing methods across related types, or running many queries in
 > quick succession. For one-off queries the results cache already handles
 > repeated lookups instantly.
+
+---
+
+
+<a id="caching"></a>
+## Caching
+
+`rust-meth` caches at three levels to minimize repeated work:
+
+| Cache | Location | What it eliminates |
+|---|---|---|
+| Results | `$XDG_CACHE_HOME/rust-meth/results/` | Entire LSP session (~0.0s on hit) |
+| Probe | `$XDG_CACHE_HOME/rust-meth/probes/` | Cargo resolution for third-party types |
+| Daemon workspaces | `$XDG_CACHE_HOME/rust-meth/workspaces/` | Per-session rust-analyzer index |
+
+Cache keys include the `rust-analyzer` version and `rust-meth` version —
+upgrading either automatically invalidates stale entries.
+
+### Query timing at each cache level
+
+| Path | Time | Notes |
+|---|---|---|
+| First query (cold) | `~3–9s` | Full rust-analyzer session |
+| Probe cache hit | `~3–4s` | Skips Cargo resolution |
+| Daemon warm session | `~0.1s` | Reuses live rust-analyzer process |
+| Results cache hit | `~0.0s` | Reads a JSON file, no LSP involved |
+
+
+To clear the caches:
+
+```sh
+rm -rf ~/.cache/rust-meth/
+```
+
+Or selectively:
+
+```sh
+rm -rf ~/.cache/rust-meth/results/     # clear method results only
+rm -rf ~/.cache/rust-meth/probes/      # clear probe directories
+rm -rf ~/.cache/rust-meth/workspaces/  # clear daemon workspaces
+```
+
+---
 
 <a id="call-snippets"></a>
 ## Call snippets
